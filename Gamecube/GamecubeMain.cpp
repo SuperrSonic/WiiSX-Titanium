@@ -95,6 +95,9 @@ char autoSave;
 signed char autoSaveLoaded = 0;
 char screenMode = 0;
 char videoMode = 0;
+char videoWidth = 0;
+char videoFb = 1;
+char videoLinear = 0;
 char fileSortMode = 1;
 char padAutoAssign;
 char padType[2];
@@ -111,7 +114,27 @@ char smbPassWord[CONFIG_STRING_SIZE];
 char smbShareName[CONFIG_STRING_SIZE];
 char smbIpAddr[CONFIG_STRING_SIZE];
 
+//int underclock = 0; //intended to prevent glitch where jump fails in PRLR
+char cfg_path[512] = {0};
+
 int stop = 0;
+
+
+extern u8 dimSwitch;
+bool writePlaylog = true;
+
+void nightMode(u8 amount)
+{
+	if(amount == 1)
+		amount = 0;
+	u8 sharp[7] = {0, 0, 21, amount, 21, 0, 0};
+	u8* vfilter = sharp;
+
+	GX_SetCopyFilter(vmode->aa,vmode->sample_pattern,GX_TRUE,vfilter);
+	GX_Flush();
+	VIDEO_Configure(vmode);
+	VIDEO_Flush();
+}
 
 static struct {
 	const char* key;
@@ -126,7 +149,10 @@ static struct {
   { "FPS", &showFPSonScreen, FPS_HIDE, FPS_SHOW },
 //  { "Debug", &printToScreen, DEBUG_HIDE, DEBUG_SHOW },
   { "ScreenMode", &screenMode, SCREENMODE_4x3, SCREENMODE_16x9_PILLARBOX },
-  { "VideoMode", &videoMode, VIDEOMODE_AUTO, VIDEOMODE_PROGRESSIVE },
+  { "VideoMode", &videoMode, VIDEOMODE_AUTO, VIDEOMODE_DS },
+  { "VideoWidth", &videoWidth, VIDEOWIDTH_640, VIDEOWIDTH_720 },
+  { "VideoFb", &videoFb, VIDEOFB_512, VIDEOFB_640 },
+  { "VideoLinear", &videoLinear, LINEAR_OFF, LINEAR_2x },
   { "FileSortMode", &fileSortMode, FILESORT_DIRS_MIXED, FILESORT_DIRS_FIRST },
   { "Core", &dynacore, DYNACORE_DYNAREC, DYNACORE_INTERPRETER },
   { "NativeDevice", &nativeSaveDevice, NATIVESAVEDEVICE_SD, NATIVESAVEDEVICE_CARDB },
@@ -159,7 +185,7 @@ void loadSettings(int argc, char *argv[])
 {
 	// Default Settings
 	audioEnabled     = 1; // Audio
-	volume           = VOLUME_MEDIUM;
+	volume           = VOLUME_LOUD;
 #ifdef RELEASE
 	showFPSonScreen  = 0; // Don't show FPS on Screen
 #else
@@ -169,15 +195,18 @@ void loadSettings(int argc, char *argv[])
 	printToSD        = 0; // Disable SD logging
 	frameLimit		 = 1; // Auto limit FPS
 	frameSkip		 = 0; // Disable frame skipping
-	iUseDither		 = 1; // Default dithering
+	iUseDither		 = 0; // Default dithering
 	saveEnabled      = 0; // Don't save game
 	nativeSaveDevice = 0; // SD
 	saveStateDevice	 = 0; // SD
 	autoSave         = 1; // Auto Save Game
 	creditsScrolling = 0; // Normal menu for now
 	dynacore         = 0; // Dynarec
-	screenMode		 = 0; // Stretch FB horizontally
+	screenMode		 = CONF_GetAspectRatio() == CONF_ASPECT_16_9 ? SCREENMODE_16x9_PILLARBOX : 0; // Stretch FB horizontally
 	videoMode		 = VIDEOMODE_AUTO;
+	videoWidth		 = VIDEOWIDTH_640;
+	videoFb          = VIDEOFB_640;
+	videoLinear      = LINEAR_2x;
 	fileSortMode	 = FILESORT_DIRS_FIRST;
 	padAutoAssign	 = PADAUTOASSIGN_AUTOMATIC;
 	padType[0]		 = PADTYPE_NONE;
@@ -207,7 +236,8 @@ void loadSettings(int argc, char *argv[])
 	spu_config.iTempo = 0;
 	Config.PsxAuto = 1; //Autodetect
 	Config.cycle_multiplier = CYCLE_MULT_DEFAULT;
-	LoadCdBios = BOOTTHRUBIOS_NO;
+	LoadCdBios = BOOTTHRUBIOS_YES;
+	biosDevice = BIOSDEVICE_SD;
 
 	//config stuff
 	fileBrowser_file* configFile_file;
@@ -216,7 +246,9 @@ void loadSettings(int argc, char *argv[])
 	if(argv[0][0] == 'u') {  //assume USB
 		configFile_file = &saveDir_libfat_USB;
 		if(configFile_init(configFile_file)) {                //only if device initialized ok
-			FILE* f = fopen( "usb:/wiisx/settings.cfg", "r" );  //attempt to open file
+			if(cfg_path[0] == NULL)
+				strcpy(cfg_path, "usb:/wiisx/settings.cfg");
+			FILE* f = fopen( cfg_path, "r" );  //attempt to open file
 			if(f) {        //open ok, read it
 				readConfig(f);
 				fclose(f);
@@ -250,7 +282,9 @@ void loadSettings(int argc, char *argv[])
 	{ //assume SD
 		configFile_file = &saveDir_libfat_Default;
 		if(configFile_init(configFile_file)) {                //only if device initialized ok
-			FILE* f = fopen( "sd:/wiisx/settings.cfg", "r" );  //attempt to open file
+			if(cfg_path[0] == NULL)
+				strcpy(cfg_path, "sd:/wiisx/settings.cfg");
+			FILE* f = fopen( cfg_path, "r" );  //attempt to open file
 			if(f) {        //open ok, read it
 				readConfig(f);
 				fclose(f);
@@ -301,15 +335,17 @@ void ScanPADSandReset(u32 dummy)
 //	PAD_ScanPads();
 	padNeedScan = wpadNeedScan = 1;
 	
-	// skip menu call for now
+	// Something crashes the Wii when front buttons are pressed
+	// wii remote power button works though
+	
 //	if(!((*(u32*)0xCC003000)>>16))
-//	stop = 1;
+	//stop = 1;
 }
 
 #ifdef HW_RVL
 void ShutdownWii() 
 {
-	return;
+return;
 	//shutdown = 1;
 	//stop = 1;
 }
@@ -334,6 +370,10 @@ PluginTable plugins[] =
 	  PLUGIN_SLOT_5 };
 }
 
+bool Autoboot;
+char AutobootROM[1024];
+char AutobootPath[1024];
+
 int main(int argc, char *argv[]) 
 {
 	/* INITIALIZE */
@@ -352,6 +392,22 @@ int main(int argc, char *argv[])
 #else
 	VM_Init(ARAM_SIZE, MRAM_BACKING);		// Setup Virtual Memory with the entire ARAM
 #endif
+	if(argc > 2 && argv[1] != NULL && argv[2] != NULL)
+	{
+		Autoboot = true;
+		strncpy(AutobootPath, argv[1], sizeof(AutobootPath));
+		strncpy(AutobootROM, argv[2], sizeof(AutobootROM));
+	}
+	else
+	{
+		Autoboot = false;
+		memset(AutobootPath, 0, sizeof(AutobootPath));
+		memset(AutobootROM, 0, sizeof(AutobootROM));
+	}
+	
+	//Autoboot = true;
+	//strncpy(AutobootPath, "sd:/wiisx/isos/", sizeof(AutobootPath));
+	//strncpy(AutobootROM, "PRLR.cue", sizeof(AutobootROM));
 	
 	loadSettings(argc, argv);
 	MenuContext *menu = new MenuContext(vmode);
@@ -382,7 +438,13 @@ int main(int argc, char *argv[])
 	  init_network_thread();
   }
 #endif
-	
+	if(Autoboot)
+	{
+		//if(strncasecmp(AutobootPath, "ntfs:/", 6) == 0)
+			//fileBrowser_libntfs_Mount();
+		menu->Autoboot();
+		Autoboot = false;
+	}
 	while (menu->isRunning()) {}
 	
 	// Shut down AESND
@@ -493,6 +555,78 @@ int loadISO(fileBrowser_file* file)
 }
 
 void setOption(char* key, char* valuePointer){
+
+	bool isString = valuePointer[0] == '"';
+	//char value = 0;
+	
+	if(isString) {
+		char* p = valuePointer++;
+		while(*++p != '"');
+		*p = 0;
+	} //else
+		//value = atoi(valuePointer);
+	
+	unsigned int i = 0;
+	for(i=0; i<18; i++){
+		if(!strcmp("settings-path", key)) {
+			sprintf(cfg_path, "%s", valuePointer);
+		}
+		else if(!strcmp("--no-playlog", key)) {
+				writePlaylog = false;
+		}
+		else if(!strcmp("--night-hard", key)) {
+				nightMode(dimSwitch);
+				dimSwitch = 4; //prevents reset button from turning it off
+		}
+		else if(!strcmp("--night", key)) {
+				nightMode(dimSwitch);
+		}
+		else if(!strcmp("--night-lite", key)) {
+				dimSwitch = 12;
+				nightMode(dimSwitch);
+		}
+		else if(!strcmp("--vol-medium", key)) {
+				spu_config.iVolume = 1024 - (3 * 192);
+		}
+		else if(!strcmp("--vol-loudest", key)) {
+				spu_config.iVolume = 1024 - (1 * 192);
+		}
+		else if(!strcmp("--frameskip", key)) {
+				frameSkip = 1;
+		}
+		else if(!strcmp("--no-linear", key)) {
+					videoLinear = 0;
+		}
+		else if(!strcmp("--linear", key)) {
+					videoLinear = 1;
+		}
+		else if(!strcmp("--vi-width-full", key)) {
+					videoWidth = 2;
+		}
+		else if(!strcmp("--vi-width-accurate", key)) {
+					videoWidth = 1; //useless option really
+		}
+		else if(!strcmp("--widescreen-alt", key)) {
+			//scales to 512px wide, allowing pixel-perfect in a ton of games, when combined with 2x
+					screenMode = 1;
+		}
+		else if(!strcmp("--240p", key)) {
+					videoMode = 4;
+		}
+		else if(!strcmp("--doublestrike", key)) {
+					videoMode = 4;
+		}
+		else if(!strcmp("--non-interlace", key)) {
+					videoMode = 4;
+		} else if(!strcmp("ps1-path", key)) {
+			sprintf(cfg_path, "%s", valuePointer);
+		} //else if(!strcmp("--underclock-cpu", key)) {
+			//underclock = 1;
+		//}
+		//break;
+	}
+
+#if 0
 	bool isString = valuePointer[0] == '"';
 	char value = 0;
 	
@@ -514,6 +648,7 @@ void setOption(char* key, char* valuePointer){
 			break;
 		}
 	}
+#endif
 }
 
 void handleConfigPair(char* kv){

@@ -31,8 +31,11 @@ extern "C" {
 #include "../gc_input/controller.h"
 #ifdef WII
 #include <di/di.h>
+#include "utils/playlog.h"
 #endif 
 }
+
+extern bool writePlaylog;
 
 extern char shutdown;
 
@@ -109,6 +112,10 @@ void Gui::draw()
 		{
 			VIDEO_SetBlack(true);
 			VIDEO_Flush();
+			//Update message board time
+			//if(Autoboot)
+			if(writePlaylog)
+				Playlog_Exit();
 		 	VIDEO_WaitVSync();
 			if(shutdown==1)	//Power off System
 				SYS_ResetSystem(SYS_POWEROFF, 0, 0);
@@ -128,18 +135,15 @@ void Gui::draw()
 					*(volatile unsigned int*)0xCC003024 = 0;  //reboot
 			  }
 #else
-				#define HBC_STUB 0x53545542
-				#define HBC_HAXX 0x48415858
-				//Load HBC Stub if STUBAXX signature is present
-				if(*(volatile unsigned int*)0x80001804 == HBC_STUB &&
-					*(volatile unsigned int*)0x80001808 == HBC_HAXX)
+				if(*(volatile unsigned int*)0x80001804 == 0x53545542 &&
+					*(volatile unsigned int*)0x80001808 == 0x48415858)
 					rld();
-				else // Wii channel support
-					SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0); // Return to the Wii System Menu
+				else
+					SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
 #endif
 			}
 		}
-
+		/* The increment value was 3 */
 		char increment = 8;
 		fade = fade +increment > 255 ? 255 : fade + increment;
 	}

@@ -169,7 +169,7 @@ static char FRAME_STRINGS[56][24] =
 	  "Select Bios",
 	  "Boot Through Bios",
 	  "Execute Bios",
-	  "Save settings.cfg",
+	  "Save Settings",
 	  "Interpreter",
 	  "Dynarec",
 	  "HLE",
@@ -183,7 +183,7 @@ static char FRAME_STRINGS[56][24] =
 	  "Limit FPS",
 	  "Frame Skip",
 	  "Screen Mode",
-	  "Dithering",
+	  "Dither",
 	  "Scaling",
 	  "On",
 	  "Off",
@@ -210,10 +210,10 @@ static char FRAME_STRINGS[56][24] =
 	  "Disable XA",
 	  "Disable CDDA",
 	  "Volume",
-	  "loudest",	//volume=1
-	  "loud",
-	  "medium",
-	  "low",		//volume=4
+	  "Loudest",	//volume=1
+	  "Loud",
+	  "Medium",
+	  "Low",		//volume=4
 	//Strings for Saves tab (starting at FRAME_STRINGS[51]) ..was[55]
 	  "Memcard Save Device",
 	  "Auto Save Memcards",

@@ -227,6 +227,9 @@ int               iFakePrimBusy=0;
 int               iRumbleVal=0;
 int               iRumbleTime=0;
 
+int db_width = 0;
+int db_height = 0;
+
 #ifdef _WINDOWS
 
 ////////////////////////////////////////////////////////////////////////
@@ -712,7 +715,7 @@ void updateDisplay(void)                               // UPDATE DISPLAY
 
  if(ulKeybits&KEY_SHOWFPS)                             // make fps display buf
   {
-   sprintf(szDispBuf,"FPS %06.2f",fps_cur);
+   sprintf(szDispBuf,"FPS %06.2f, %dx%d",fps_cur, db_width, db_height);
   }
 
  if(iFastFwd)                                          // fastfwd ?

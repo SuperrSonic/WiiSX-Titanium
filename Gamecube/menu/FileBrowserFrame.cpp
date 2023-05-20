@@ -450,6 +450,7 @@ extern BOOL hasLoadedISO;
 extern char CdromId[10];
 extern char CdromLabel[33];
 extern signed char autoSaveLoaded;
+void Func_PlayGame();
 void Func_SetPlayGame();
 extern "C" {
 void newCD(fileBrowser_file *file);
@@ -468,12 +469,11 @@ void fileBrowserFrame_LoadFile(int i)
 		menu::Focus::getInstance().clearPrimaryFocus();
 	} else if (fileBrowserMode == FileBrowserFrame::FILEBROWSER_LOADISO) {
 		// We must select this file
-		int ret = loadISO( &dir_entries[i] );
-		
-		if(!ret){	// If the read succeeded.
+		int ret = loadISO(&dir_entries[i]);
+		if(!ret && !Autoboot)
+		{	// If the read succeeded.
 			strcpy(feedback_string, "Loaded ");
 			strncat(feedback_string, filenameFromAbsPath(dir_entries[i].name), 36-7);
-
 			char RomInfo[512] = "";
 			char buffer [50];
 			strcat(RomInfo,feedback_string);
@@ -487,34 +487,31 @@ void fileBrowserFrame_LoadFile(int i)
 			strcat(RomInfo,buffer);
 			sprintf(buffer,"BIOS: %s\n",(Config.HLE==BIOS_USER_DEFINED) ? "USER DEFINED":"HLE");
 			strcat(RomInfo,buffer);
-			/*unsigned char tracks[2];
-      		CDR_getTN(&tracks[0]);
-      		sprintf(buffer,"Number of tracks %i\n", tracks[1]);
-			strcat(RomInfo,buffer);*/
-    		
-			
+		//	unsigned char tracks[2];
+		//	CDR_getTN(&tracks[0]);
+		//	sprintf(buffer,"Number of tracks %i\n", tracks[1]);
+		//	strcat(RomInfo,buffer);
 			switch (autoSaveLoaded)
 			{
-			case NATIVESAVEDEVICE_NONE:
-				break;
-			case NATIVESAVEDEVICE_SD:
-				strcat(RomInfo,"\nFound & loaded save from SD card\n");
-				break;
-			case NATIVESAVEDEVICE_USB:
-				strcat(RomInfo,"\nFound & loaded save from USB device\n");
-				break;
-			case NATIVESAVEDEVICE_CARDA:
-				strcat(RomInfo,"\nFound & loaded save from memcard in slot A\n");
-				break;
-			case NATIVESAVEDEVICE_CARDB:
-				strcat(RomInfo,"\nFound & loaded save from memcard in slot B\n");
-				break;
+				case NATIVESAVEDEVICE_NONE:
+					break;
+				case NATIVESAVEDEVICE_SD:
+					strcat(RomInfo,"\nFound & loaded save from SD card\n");
+					break;
+				case NATIVESAVEDEVICE_USB:
+					strcat(RomInfo,"\nFound & loaded save from USB device\n");
+					break;
+				case NATIVESAVEDEVICE_CARDA:
+					strcat(RomInfo,"\nFound & loaded save from memcard in slot A\n");
+					break;
+				case NATIVESAVEDEVICE_CARDB:
+					strcat(RomInfo,"\nFound & loaded save from memcard in slot B\n");
+					break;
 			}
 			autoSaveLoaded = NATIVESAVEDEVICE_NONE;
-
 			menu::MessageBox::getInstance().setMessage(RomInfo);
 		}
-		else		// If not.
+		else if(ret) // If not.
 		{
 			menu::MessageBox::getInstance().setMessage(feedback_string);
 		}
@@ -536,7 +533,7 @@ void fileBrowserFrame_LoadFile(int i)
 		pMenuContext->setActiveFrame(MenuContext::FRAME_MAIN);
 		//if(hasLoadedISO) Func_SetPlayGame();
 		Func_SetPlayGame(); //hasLoadedISO will be set to False if SysInit() fails
-	} 
+	}
 	else if (fileBrowserMode == FileBrowserFrame::FILEBROWSER_SWAPCD) {
 		//TODO: Properly implement this
 		int ret = loadISOSwap( &dir_entries[i] );
@@ -547,4 +544,17 @@ void fileBrowserFrame_LoadFile(int i)
 	  }
 	  pMenuContext->setActiveFrame(MenuContext::FRAME_MAIN);
 	}
+}
+
+void fileBrowserFrame_AutoBootFile()
+{
+	int i;
+	for(i = 0; i < num_entries - 1; i++)
+		if(strcasestr(dir_entries[i].name, AutobootROM) != NULL)
+			break;
+	fileBrowserFrame_LoadFile(i);
+	pMenuContext->setActiveFrame(MenuContext::FRAME_MAIN);
+	Func_SetPlayGame();
+	Func_PlayGame();
+	return;
 }

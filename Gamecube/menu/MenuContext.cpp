@@ -160,3 +160,13 @@ void MenuContext::draw()
 {
 	menu::Gui::getInstance().draw();
 }
+
+void MenuContext::Autoboot()
+{
+	if(strcasestr(AutobootPath,"sd:/") != NULL)
+		Func_LoadFromSD();
+	else
+		Func_LoadFromUSB();
+	fileBrowserFrame_AutoBootFile();
+	mainFrame->Autoboot();
+}

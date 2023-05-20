@@ -331,7 +331,21 @@ void IplFont::drawString(int x, int y, char *string, float scale, bool centered)
 //			GX_Color4u8(fontState->colour.r, fontState->colour.g, fontState->colour.b, fontState->colour.a);
 //			GX_TexCoord2f32(((float) (fontChars.s[c] + s))/512, ((float) (fontChars.t[c] + t))/512);
 //			GX_TexCoord2u16(fontChars.s[c] + s, fontChars.t[c] + t);
-			GX_TexCoord2f32(s0, t0);
+			
+			if(menuActive)
+				GX_TexCoord2f32(s0, t0); //og
+			else
+				GX_TexCoord2f32(((float) (fontChars.s[c] + s)), ((float) (fontChars.t[c] + t)));
+			
+			/*
+		if(i == 0)
+			GX_TexCoord2f32(((float) (fontChars.s[c] + s)), ((float) (fontChars.t[c] + t)));
+		else if (i == 1)
+			GX_TexCoord2f32(((float) (fontChars.s[c] + s)), ((float) (fontChars.t[c] + t)));
+		else if (i == 2)
+			GX_TexCoord2f32(((float) (fontChars.s[c] + s)), ((float) (fontChars.t[c] + t)));
+		else if (i == 3)
+			GX_TexCoord2f32(((float) (fontChars.s[c] + s)), ((float) (fontChars.t[c] + t))); */
 		}
 		GX_End();
 

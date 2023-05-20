@@ -38,8 +38,8 @@ void Func_MessageBoxCancel();
 #define FRAME_STRINGS messageBoxStrings
 
 static char FRAME_STRINGS[2][7] =
-	{ "OK",
-	  "Cancel"};
+	{ "Yes",
+	  "No"};
 
 #define MESSAGEBOX_TEXT_WIDTH 512
 char messageBoxText[MESSAGEBOX_TEXT_WIDTH];

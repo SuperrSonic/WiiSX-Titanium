@@ -137,6 +137,8 @@ void Func_LoadFromSD()
 	isoFile_init( isoFile_topLevel );
 
 	pMenuContext->setActiveFrame(MenuContext::FRAME_FILEBROWSER,loadRomMode);
+	if(Autoboot)
+		strncpy(isoFile_topLevel->name, AutobootPath, sizeof(isoFile_topLevel->name));
 	fileBrowserFrame_OpenDirectory(isoFile_topLevel);
 }
 
@@ -176,6 +178,8 @@ void Func_LoadFromUSB()
 	isoFile_init( isoFile_topLevel );
 	
 	pMenuContext->setActiveFrame(MenuContext::FRAME_FILEBROWSER,loadRomMode);
+	if(Autoboot)
+		strncpy(isoFile_topLevel->name, AutobootPath, sizeof(isoFile_topLevel->name));
 	fileBrowserFrame_OpenDirectory(isoFile_topLevel);
 #else
 	menu::MessageBox::getInstance().setMessage("Available only for Wii");

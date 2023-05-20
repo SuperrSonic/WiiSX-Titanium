@@ -142,11 +142,11 @@ void TexelFix(void)
     }
 }
 
-void update_filter(void)
+void update_filter(bool forceLinear)
 {
     //Sharp Bilinear filtering for Widescreen
     //if (CONF_GetAspectRatio() == CONF_ASPECT_16_9) {
-    if (videoLinear == 2) {
+    if (videoLinear == 2 && !forceLinear) {
     //if (videoLinear > 1) {
         GX_InitTexObj(&indtexobj, indtexdata, 4, 4, GX_TF_IA8, GX_REPEAT, GX_REPEAT, GX_TRUE);
         GX_InitTexObjLOD(&indtexobj, GX_LIN_MIP_LIN, GX_LINEAR, 0., 2., -1. / 3., GX_FALSE, GX_TRUE, GX_ANISO_4);
@@ -417,23 +417,71 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 	if((width == 0) || (height == 0))
 		return;
 
-	if(firstFrame)
-		TexelFix();
+	//if(firstFrame)
+		//TexelFix();
+	
+	if(need_reset)
+		update_filter(true);
 
-	//if(need_reset)
-		//update_filter(true);
-	if(need_reset) {
+	//if(videoFb && need_reset) {
+	if((screenMode < SCREENMODE_16x9_PILLARBOX) && need_reset) {
 		need_reset = false;
-		TexelFix();
-		//update_filter(false);
+		VIDEO_WaitVSync();
+		//if(videoFb) { //if videoFb is 0 always force 512x width
+		if(width * 2 < 641)
+			vmode->fbWidth = width * 2;
+		else
+			vmode->fbWidth = width; // 640(bios), 352, 368, etc.
+		/*
+		if(width > 352 && width < 368) {
+		//	vmode->fbWidth = 640; //not a bad idea but
+			vmode->fbWidth = 368;
+			if(videoWidth == 1) { //using "accurate mode", enable VI scaling
+				vmode->viWidth = 702;
+				vmode->viXOrigin = ((720 - 702) / 2) - 6; //6 because of the 368 thing
+			}
+			expand_width = true;
+		} else if(videoWidth == 1) { //reset
+			vmode->viWidth = 644;
+			vmode->viXOrigin = (720 - 644) / 2;
+		} */
+		
+		//16:9 correction using VI
+		if(screenMode == SCREENMODE_16x9) {
+			if(width == 512 || width == 256)
+				vmode->fbWidth = 512;
+			else
+				//vmode->fbWidth = width > 352 && width < 368 ? 368 : width;
+				vmode->fbWidth = width;
+			if(vmode->fbWidth > 512) {
+				vmode->fbWidth = 512;
+			}
+			vmode->viWidth = 512;
+			//if(vmode->viWidth < vmode->fbWidth)
+				//vmode->viWidth = vmode->fbWidth;
+			vmode->viXOrigin = (720 - vmode->viWidth) / 2;
+		}
+		
+		VIDEO_Configure(vmode);
+		VIDEO_Flush();
+		
+		GX_SetViewport(1.0f/24.0f,1.0f/24.0f,vmode->fbWidth,vmode->efbHeight,0,1);
+		GX_SetScissor(0, 0, vmode->fbWidth, vmode->efbHeight);
+		GX_SetDispCopySrc(0,0,vmode->fbWidth,vmode->efbHeight);
+		GX_SetDispCopyDst(vmode->fbWidth,vmode->xfbHeight);
+		GX_InvVtxCache();
+		//}
 	}
 
 	if ((oldwidth != width) || (oldheight != height) || (oldformat != fmt))
 	{ //adjust texture conversion
+		//TexelFix();
+		
+		width &= ~3;
+		height &= ~3;
 		oldwidth = width;
 		oldheight = height;
 		oldformat = fmt;
-		
 		u8 scaler;
 		scaler = videoLinear ? GX_LINEAR : GX_NEAR; //this allows bigger than 1 to use GX_LINEAR
 		
@@ -446,6 +494,56 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 		
 		db_width = width;
 		db_height = height;
+		
+		//start video switch
+		if(screenMode < SCREENMODE_16x9_PILLARBOX) { //if videoFb is 0 always force 512x width
+		if(width * 2 < 641)
+			vmode->fbWidth = width * 2;
+		else
+			vmode->fbWidth = width; // 640(bios), 352, 368, etc.
+		
+		//if(vmode->fbWidth < 432)
+			//vmode->fbWidth = 640;
+		/*
+		if(width > 352 && width < 368) {
+		//	vmode->fbWidth = 640; //not a bad idea but
+			vmode->fbWidth = 368;
+			if(videoWidth == 1) { //using "accurate mode", enable VI scaling
+				vmode->viWidth = 702;
+				vmode->viXOrigin = ((720 - 702) / 2) - 6; //6 because of the 368 thing
+			}
+			expand_width = true;
+		} else if(videoWidth == 1) { //reset
+			vmode->viWidth = 644;
+			vmode->viXOrigin = (720 - 644) / 2;
+		}*/
+		
+		//16:9 correction using VI
+		if(screenMode == SCREENMODE_16x9) {
+			if(width == 512 || width == 256)
+				vmode->fbWidth = 512;
+			else
+				vmode->fbWidth = width;
+				//vmode->fbWidth = width > 352 && width < 368 ? 368 : width;
+			if(vmode->fbWidth > 512)
+				vmode->fbWidth = 512;
+			vmode->viWidth = vmode->fbWidth;
+			//if(vmode->viWidth < vmode->fbWidth)
+				//vmode->viWidth = vmode->fbWidth;
+			vmode->viXOrigin = (720 - vmode->viWidth) / 2;
+		}
+		
+		//vmode->viXOrigin = (720 - vmode->fbWidth) / 2;
+		VIDEO_Configure(vmode);
+		VIDEO_Flush();
+		
+		//GX_SetCopyClear((GXColor){0x00,0x00,0x00,0xff},0x00ffffff);
+		GX_SetViewport(1.0f/24.0f,1.0f/24.0f,vmode->fbWidth,vmode->efbHeight,0,1);
+		GX_SetScissor(0, 0, vmode->fbWidth, vmode->efbHeight);
+		GX_SetDispCopySrc(0,0,vmode->fbWidth,vmode->efbHeight);
+		GX_SetDispCopyDst(vmode->fbWidth,vmode->xfbHeight);
+		GX_InvVtxCache();
+		}
 	}
 
 	if(PSXDisplay.RGB24) {
@@ -556,13 +654,9 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 	GX_SetZMode(GX_ENABLE,GX_ALWAYS,GX_TRUE);
 
 	GX_InvalidateTexAll();
-//	GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);
-//	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
-	//if(need_reset) {
-		update_filter();
-		//need_reset = false;
-	//}
-
+	GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);
+	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
+    //update_filter(false);
 
 	GX_ClearVtxDesc();
 	GX_SetVtxDesc(GX_VA_PTNMTXIDX, GX_PNMTX0);
@@ -573,17 +667,19 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XY, GX_F32, 0);
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
 
-//	GX_SetNumTexGens(1);
-//	GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+	GX_SetNumTexGens(1);
+	GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+	
 
-	GX_DrawDone();
+	//GX_DrawDone();
 
 	float xcoord = 1.0;
 	//float ycoord = 1.0;
 	float ycoord = height*2 > 484 ? height/480.0 : height*2/480.0; //1.009; //1.0084 scanline ends at 1-242
 	if(screenMode == SCREENMODE_16x9_PILLARBOX) xcoord = 640.0/848.0;
-	else if(screenMode == SCREENMODE_16x9) xcoord = 512/640.0;
-
+	//if(expand_width)
+		//xcoord = 720.0/736.0;
+/*
 	GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
 	  GX_Position2f32(-xcoord, ycoord);
 	  GX_TexCoord2f32( 0.0, 0.0);
@@ -593,8 +689,8 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 	  GX_TexCoord2f32( width, height);
 	  GX_Position2f32(-xcoord,-ycoord);
 	  GX_TexCoord2f32( 0.0, height);
-	GX_End();
-/*
+	GX_End();*/
+
 	GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
 	  GX_Position2f32(-xcoord, ycoord);
 	  GX_TexCoord2f32( 0.0, 0.0);
@@ -605,7 +701,7 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 	  GX_Position2f32(-xcoord,-ycoord);
 	  GX_TexCoord2f32( 0.0, 1.0);
 	GX_End();
-*/
+
 	//Write menu/debug text on screen
 	GXColor fontColor = {150,255,150,255};
 	IplFont_drawInit(fontColor);
@@ -621,16 +717,16 @@ void GX_Flip(short width, short height, u8 * buffer, int pitch, u8 fmt)
 	GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED ,GX_CH_ALPHA);
 	GX_SetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP0, GX_TEV_SWAP0);
 
-	//GX_DrawDone();
+	GX_DrawDone();
 
 	whichfb ^= 1;
 	GX_CopyDisp(xfb[whichfb], GX_TRUE);
-	GX_DrawDone();
+	//GX_DrawDone();
 //	printf("Prv.Rng.x0,x1,y0 = %d, %d, %d, Prv.Mode.y = %d,DispPos.x,y = %d, %d, RGB24 = %x\n",PreviousPSXDisplay.Range.x0,PreviousPSXDisplay.Range.x1,PreviousPSXDisplay.Range.y0,PreviousPSXDisplay.DisplayMode.y,PSXDisplay.DisplayPosition.x,PSXDisplay.DisplayPosition.y,PSXDisplay.RGB24);
 	VIDEO_SetNextFramebuffer(xfb[whichfb]);
 	VIDEO_Flush();
 //	VIDEO_WaitVSync();
-
+    
 	if(firstFrame) {
 		firstFrame = false;
 		VIDEO_SetBlack(false);

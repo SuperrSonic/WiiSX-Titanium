@@ -91,23 +91,16 @@ static unsigned int getButtons(int Control)
 	s8 substickX   = PAD_SubStickX(Control);
 	s8 substickY   = PAD_SubStickY(Control);
 	
-#if 0
-	if(stickX    < -48) b |= ANALOG_L;
-	if(stickX    >  48) b |= ANALOG_R;
-	if(stickY    >  48) b |= ANALOG_U;
-	if(stickY    < -48) b |= ANALOG_D;
-#else
-	// force mirror d-pad to GC control stick
+	// Originally ANALOG, was changed to mirror dpad
 	if(stickX    < -38) b |= PAD_BUTTON_LEFT;
 	if(stickX    >  38) b |= PAD_BUTTON_RIGHT;
 	if(stickY    >  38) b |= PAD_BUTTON_UP;
 	if(stickY    < -38) b |= PAD_BUTTON_DOWN;
-#endif
-
-	if(substickX < -48) b |= C_STICK_L;
-	if(substickX >  48) b |= C_STICK_R;
-	if(substickY >  48) b |= C_STICK_U;
-	if(substickY < -48) b |= C_STICK_D;
+	
+	if(substickX < -38) b |= C_STICK_L;
+	if(substickX >  38) b |= C_STICK_R;
+	if(substickY >  38) b |= C_STICK_U;
+	if(substickY < -38) b |= C_STICK_D;
 	
 	if(!(b & PAD_TRIGGER_Z)) b |= PAD_TRIGGER_Z_UP;
 
