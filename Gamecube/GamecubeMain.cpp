@@ -185,7 +185,7 @@ void loadSettings(int argc, char *argv[])
 {
 	// Default Settings
 	audioEnabled     = 1; // Audio
-	volume           = VOLUME_LOUD;
+	volume           = VOLUME_LOUDEST;
 #ifdef RELEASE
 	showFPSonScreen  = 0; // Don't show FPS on Screen
 #else
@@ -202,7 +202,7 @@ void loadSettings(int argc, char *argv[])
 	autoSave         = 1; // Auto Save Game
 	creditsScrolling = 0; // Normal menu for now
 	dynacore         = 0; // Dynarec
-	screenMode		 = CONF_GetAspectRatio() == CONF_ASPECT_16_9 ? SCREENMODE_16x9_PILLARBOX : 0; // Stretch FB horizontally
+	screenMode		 = CONF_GetAspectRatio() == CONF_ASPECT_16_9 ? SCREENMODE_16x9 : 0; // Stretch FB horizontally
 	videoMode		 = VIDEOMODE_AUTO;
 	videoWidth		 = VIDEOWIDTH_640;
 	videoFb          = VIDEOFB_640;
@@ -567,7 +567,7 @@ void setOption(char* key, char* valuePointer){
 		//value = atoi(valuePointer);
 	
 	unsigned int i = 0;
-	for(i=0; i<18; i++){
+	for(i=0; i<20; i++){
 		if(!strcmp("settings-path", key)) {
 			sprintf(cfg_path, "%s", valuePointer);
 		}
@@ -606,9 +606,13 @@ void setOption(char* key, char* valuePointer){
 		else if(!strcmp("--vi-width-accurate", key)) {
 					videoWidth = 1; //useless option really
 		}
-		else if(!strcmp("--widescreen-alt", key)) {
+		else if(!strcmp("--force-wide-alt", key)) {
 			//scales to 512px wide, allowing pixel-perfect in a ton of games, when combined with 2x
 					screenMode = 1;
+		}
+		else if(!strcmp("--force-wide", key)) {
+			//scales to 512px wide, allowing pixel-perfect in a ton of games, when combined with 2x
+					screenMode = 2;
 		}
 		else if(!strcmp("--240p", key)) {
 					videoMode = 4;
