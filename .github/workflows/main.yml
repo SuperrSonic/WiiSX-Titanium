@@ -73,14 +73,7 @@ jobs:
         make -f Makefile_Wii
         mv WiiSX.dol release/apps/wiiSX/boot.dol
       working-directory: pcsxgc/Gamecube
-            
-    - name: Build CubeSX (soft gfx)
-      run: |
-        make -f Makefile_Cube clean
-        make -f Makefile_Cube
-        mv CubeSX.dol release/CubeSX.dol
-      working-directory: pcsxgc/Gamecube
-
+      
     - name: Upload artifacts
       uses: actions/upload-artifact@main
       with:
