@@ -112,10 +112,12 @@ void Gui::draw()
 		{
 			VIDEO_SetBlack(true);
 			VIDEO_Flush();
+#ifdef WII
 			//Update message board time
 			//if(Autoboot)
 			if(writePlaylog)
 				Playlog_Exit();
+#endif
 		 	VIDEO_WaitVSync();
 			if(shutdown==1)	//Power off System
 				SYS_ResetSystem(SYS_POWEROFF, 0, 0);
