@@ -64,7 +64,7 @@ extern GXRModeObj *vmode;
 #define FRAME_BUTTONS mainFrameButtons
 #define FRAME_STRINGS mainFrameStrings
 
-char FRAME_STRINGS[7][20] =
+char FRAME_STRINGS[7][16] =
 	{ "Load Game",
 	  "Game Data",
 	  "Settings",
