@@ -45,11 +45,8 @@ Gui::Gui()
 	: fade(9)
 {
 	menuLogo = new Logo();
-	if(screenMode < 1)
-		menuLogo->setLocation(570.0, 70.0, -150.0);
-	else
-		menuLogo->setLocation(590.0, 70.0, -150.0);
-	menuLogo->setVisible(true);
+	menuLogo->setLocation(570.0, 70.0, -150.0);
+	menuLogo->setVisible(false);
 }
 
 Gui::~Gui()

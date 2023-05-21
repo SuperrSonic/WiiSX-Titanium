@@ -65,7 +65,7 @@ extern GXRModeObj *vmode;
 #define FRAME_STRINGS mainFrameStrings
 
 char FRAME_STRINGS[7][16] =
-	{ "Load Game",
+	{ "Load",
 	  "Game Data",
 	  "Settings",
 	  "Exit",
