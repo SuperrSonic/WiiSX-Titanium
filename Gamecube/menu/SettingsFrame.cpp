@@ -1245,7 +1245,11 @@ void Func_SaveStateUSB()
 
 void Func_ReturnFromSettingsFrame()
 {
-	menu::Gui::getInstance().menuLogo->setLocation(580.0, 70.0, -50.0);
+	if(screenMode < 1)
+		menu::Gui::getInstance().menuLogo->setLocation(580.0, 70.0, -50.0);
+	else
+		menu::Gui::getInstance().menuLogo->setLocation(620.0, 70.0, -50.0);
+	
 	pMenuContext->setActiveFrame(MenuContext::FRAME_MAIN);
 }
 
