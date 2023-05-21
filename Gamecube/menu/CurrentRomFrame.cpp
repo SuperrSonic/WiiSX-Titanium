@@ -156,12 +156,12 @@ void Func_ShowRomInfo()
 	// scan backwards for space (0x20) and remove it
 	bool hasSp = false;
 	int i = 0;
-	for(i = 32; i > 0; --i) {
-		if(CdromLabel[32] != 0x20)
+	for(i = 31; i > 0; --i) {
+		if(CdromLabel[31] == 0x20)
 			hasSp = true;
 		else
 			break;
-	
+		
 		if(CdromLabel[i] != 0x20 && hasSp) {
 			CdromLabel[i+1] = 0;
 			break;
