@@ -152,7 +152,8 @@ void Func_ShowRomInfo()
 {
 	char RomInfo[256] = "";
 	char buffer [50];
-	
+
+#if 1
 	// scan backwards for space (0x20) and remove it
 	bool hasSp = false;
 	int i = 0;
@@ -167,6 +168,7 @@ void Func_ShowRomInfo()
 			break;
 		}
 	}
+#endif
 	
 	sprintf(buffer,"CD-ROM Label: %s\n",CdromLabel);
   strcat(RomInfo,buffer);

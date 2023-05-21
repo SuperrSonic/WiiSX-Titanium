@@ -472,6 +472,22 @@ void fileBrowserFrame_LoadFile(int i)
 		int ret = loadISO(&dir_entries[i]);
 		if(!ret && !Autoboot)
 		{	// If the read succeeded.
+#if 1
+			// scan backwards for space (0x20) and remove it
+			bool hasSp = false;
+			int i = 0;
+			for(i = 31; i > 0; --i) {
+				if(CdromLabel[31] == 0x20)
+					hasSp = true;
+				else
+					break;
+				
+				if(CdromLabel[i] != 0x20 && hasSp) {
+					CdromLabel[i+1] = 0;
+					break;
+				}
+			}
+#endif
 			strcpy(feedback_string, "Loaded ");
 			strncat(feedback_string, filenameFromAbsPath(dir_entries[i].name), 36-7);
 			char RomInfo[512] = "";
