@@ -212,7 +212,7 @@ void loadSettings(int argc, char *argv[])
 	autoSave         = 1; // Auto Save Game
 	creditsScrolling = 0; // Normal menu for now
 	dynacore         = 0; // Dynarec
-	screenMode		 = CONF_GetAspectRatio() == CONF_ASPECT_16_9 ? SCREENMODE_16x9_PILLARBOX : 0; // Stretch FB horizontally
+	screenMode		 = 0; // Stretch FB horizontally
 	videoMode		 = VIDEOMODE_AUTO;
 	videoWidth		 = VIDEOWIDTH_640;
 	videoFb          = VIDEOFB_640;
