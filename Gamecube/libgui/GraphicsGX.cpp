@@ -151,7 +151,7 @@ void Graphics::init()
 	GX_Init(gpfifo,GX_FIFO_MINSIZE);
 	GX_SetCopyClear(background, GX_MAX_Z24);
 
-	GX_SetViewport(0,0,vmode->fbWidth,vmode->efbHeight,0,1);
+	GX_SetViewport(1.0f/24.0f,1.0f/24.0f,vmode->fbWidth,vmode->efbHeight,0,1);
 	yscale = GX_GetYScaleFactor(vmode->efbHeight,vmode->xfbHeight);
 	xfbHeight = GX_SetDispCopyYScale(yscale);
 	GX_SetScissor(0,0,vmode->fbWidth,vmode->efbHeight);
@@ -195,7 +195,7 @@ void Graphics::drawInit()
 	GX_SetZTexture(GX_ZT_DISABLE,GX_TF_Z16,0);	//GX_ZT_DISABLE or GX_ZT_REPLACE; set in gDP.cpp
 	GX_SetZCompLoc(GX_TRUE);	// Do Z-compare before texturing.
 	GX_SetFog(GX_FOG_NONE,0,1,0,1,(GXColor){0,0,0,255});
-	GX_SetViewport(0,0,vmode->fbWidth,vmode->efbHeight,0,1);
+	GX_SetViewport(1.0f/24.0f,1.0f/24.0f,vmode->fbWidth,vmode->efbHeight,0,1);
 	GX_SetCoPlanar(GX_DISABLE);
 	GX_SetClipMode(GX_CLIP_ENABLE);
 	GX_SetScissor(0,0,vmode->fbWidth,vmode->efbHeight);
