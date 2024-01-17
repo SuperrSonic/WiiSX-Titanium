@@ -727,7 +727,7 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 #if 1
 	float ymax = height*2 > 484 ? height/480.0 : height*2/480.0;
 	float ymin = -ymax;
-	ymin -= (float)((y + height) * 2) / (float)screen_h;
+	ymin -= (float)(y + height) / (float)screen_h;
 	ymax -= (float)y / (float)screen_h;
 	
 	float xmin = (float)x / (float)screen_w - 1.0f;

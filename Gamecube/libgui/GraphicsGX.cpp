@@ -161,7 +161,7 @@ void Graphics::init()
 	GX_SetFieldMode(vmode->field_rendering,((vmode->viHeight==2*vmode->xfbHeight)?GX_ENABLE:GX_DISABLE));
  
 	if (vmode->aa)
-		GX_SetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_LINEAR); //try GX_ZC_MID
+		GX_SetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_MID);
     else
 		GX_SetPixelFmt(GX_PF_RGB8_Z24, GX_ZC_LINEAR);
 
