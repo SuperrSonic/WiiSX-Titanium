@@ -210,10 +210,12 @@ void Gui::draw()
 		{
 			VIDEO_SetBlack(true);
 			VIDEO_Flush();
+#ifdef WII
 			//Update message board time
 			if(Autoboot)
 			//if(writePlaylog)
 				Playlog_Exit();
+#endif
 		 	VIDEO_WaitVSync();
 #ifdef WII
 			// If this is a Wii U, restore the original aspect ratio
