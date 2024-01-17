@@ -107,7 +107,7 @@ struct ButtonInfo
 {
 	menu::Button	*button;
 	int				buttonStyle;
-	char*			buttonString;
+	const char*		buttonString;
 	float			x;
 	float			y;
 	float			width;
@@ -156,7 +156,7 @@ struct ButtonInfo
 struct TextBoxInfo
 {
 	menu::TextBox	*textBox;
-	char*			textBoxString;
+	const char*		textBoxString;
 	float			x;
 	float			y;
 	float			scale;
@@ -404,7 +404,7 @@ extern MenuContext *pMenuContext;
 
 void Func_NextPad()
 {
-	activePad = (activePad+1) %2;
+	activePad = (activePad+1) %4;
 
 	pMenuContext->getFrame(MenuContext::FRAME_CONFIGUREBUTTONS)->activateSubmenu(activePad);
 }

@@ -35,7 +35,7 @@ namespace menu {
 class Button : public Component
 {
 public:
-	Button(int style, char** label, float x, float y, float width, float height);
+	Button(int style, const char** label, float x, float y, float width, float height);
 	~Button();
 	void setActive(bool active);
 	bool getActive();
@@ -44,7 +44,7 @@ public:
 	void doReturn();
 	void setClicked(ButtonFunc clickedFn);
 	void doClicked();
-	void setText(char** strPtr);
+	void setText(const char** strPtr);
 	void setFontSize(float size);
 	void setLabelMode(int mode);
 	void setLabelScissor(int scissor);
@@ -71,6 +71,7 @@ public:
 		BUTTON_STYLEA_NORMAL,
 		BUTTON_STYLEA_SELECT
 	};
+	float x, y, width, height, fontSize;
 
 private:
 	bool active, selected;
@@ -78,10 +79,9 @@ private:
 	Image	*focusImage;
 	Image	*selectedImage;
 	Image	*selectedFocusImage;
-	char** buttonText;
+	const char** buttonText;
 	int buttonStyle, labelMode, labelScissor;
 	unsigned long StartTime;
-	float x, y, width, height, fontSize;
 	GXColor	focusColor, inactiveColor, activeColor, selectedColor, labelColor;
 	ButtonFunc clickedFunc, returnFunc;
 

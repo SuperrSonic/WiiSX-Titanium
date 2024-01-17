@@ -35,23 +35,18 @@
 #include <string.h>
 #include <sys/types.h>
 #include <ogc/pad.h>
-#include "../plugins.h"
-#include "../PsxCommon.h"
-#include "../PSEmu_Plugin_Defs.h"
+#include <libpcsxcore/plugins.h>
+#include <libpcsxcore/psxcommon.h>
+#include <psemu_plugin_defs.h>
 #include "gc_input/controller.h"
 #include "wiiSXconfig.h"
-#include "PadSSSPSX.h"
 
-PadDataS lastport1;
-PadDataS lastport2;
 
-extern int stop;
 
 /* Controller type, later do this by a Variable in the GUI */
-//extern char controllerType = 0; // 0 = standard, 1 = analog (analog fails on old games)
 long  PadFlags = 0;
 
-virtualControllers_t virtualControllers[2];
+virtualControllers_t virtualControllers[4];
 
 controller_t* controller_ts[num_controller_t] =
 #if defined(WII) && !defined(NO_BT)
@@ -77,13 +72,13 @@ void control_info_init(void){
 
 void pauseInput(void){
 	int i;
-	for(i=0; i<2; ++i)
+	for(i=0; i<4; ++i)
 		if(virtualControllers[i].inUse) DO_CONTROL(i, pause);
 }
 
 void resumeInput(void){
 	int i;
-	for(i=0; i<2; ++i)
+	for(i=0; i<4; ++i)
 		if(virtualControllers[i].inUse) DO_CONTROL(i, resume);
 }
 
@@ -130,7 +125,7 @@ void auto_assign_controllers(void)
 
 	// Map controllers in the priority given
 	// Outer loop: virtual controllers
-	for(i=0; i<2; ++i){
+	for(i=0; i<4; ++i){
 		// Middle loop: controller type
 		for(t=0; t<num_controller_t; ++t){
 			controller_t* type = controller_ts[t];
@@ -154,7 +149,7 @@ void auto_assign_controllers(void)
 	}
 
 	// 'Initialize' the unmapped virtual controllers
-	for(; i<2; ++i){
+	for(; i<4; ++i){
 		unassign_controller(i);
 		padType[i] = PADTYPE_NONE;
 	}
@@ -273,56 +268,4 @@ long PAD__open(void)
 long PAD__close(void) {
 	return PSE_PAD_ERR_SUCCESS;
 }
-/*
-long PAD__readPort1(PadDataS* pad) {
-	//TODO: Multitap support; Light Gun support
 
-	if( virtualControllers[0].inUse && DO_CONTROL(0, GetKeys, (BUTTONS*)&PAD_1) ) {
-		stop = 1;
-	}
-
-	if(controllerType == CONTROLLERTYPE_STANDARD) {
-		pad->controllerType = PSE_PAD_TYPE_STANDARD; 	// Standard Pad
-	}
-	else if(controllerType == CONTROLLERTYPE_ANALOG) {
-		pad->controllerType = PSE_PAD_TYPE_ANALOGPAD; 	// Analog Pad  (Right JoyStick)
-		pad->leftJoyX  = PAD_1.leftStickX;
-		pad->leftJoyY  = PAD_1.leftStickY;
-		pad->rightJoyX = PAD_1.rightStickX;
-		pad->rightJoyY = PAD_1.rightStickY;
-	}
-	else { 
-		//TODO: Light Gun
-	}
-
-	pad->buttonStatus = PAD_1.btns.All;  //set the buttons
-
-	return PSE_PAD_ERR_SUCCESS;
-}
-
-long PAD__readPort2(PadDataS* pad) {
-	//TODO: Multitap support; Light Gun support
-
-	if( virtualControllers[1].inUse && DO_CONTROL(1, GetKeys, (BUTTONS*)&PAD_2) ) {
-		stop = 1;
-	}
-
-	if(controllerType == CONTROLLERTYPE_STANDARD) {
-		pad->controllerType = PSE_PAD_TYPE_STANDARD; 	// Standard Pad
-	}
-	else if(controllerType == CONTROLLERTYPE_ANALOG) {
-		pad->controllerType = PSE_PAD_TYPE_ANALOGPAD; 	// Analog Pad  (Right JoyStick)
-		pad->leftJoyX  = PAD_2.leftStickX;
-		pad->leftJoyY  = PAD_2.leftStickY;
-		pad->rightJoyX = PAD_2.rightStickX;
-		pad->rightJoyY = PAD_2.rightStickY;
-	}
-	else { 
-		//TODO: Light Gun
-	}
-
-	pad->buttonStatus = PAD_2.btns.All;  //set the buttons
-
-	return PSE_PAD_ERR_SUCCESS;
-}
-*/

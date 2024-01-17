@@ -44,7 +44,7 @@ void Func_ReturnFromLoadRomFrame();
 #define FRAME_BUTTONS loadRomFrameButtons
 #define FRAME_STRINGS loadRomFrameStrings
 
-static char FRAME_STRINGS[4][25] =
+static const char FRAME_STRINGS[4][25] =
 	{ "Load from SD",
 	  "Load from DVD",
 	  "Load from USB",
@@ -54,7 +54,7 @@ struct ButtonInfo
 {
 	menu::Button	*button;
 	int				buttonStyle;
-	char*			buttonString;
+	const char*		buttonString;
 	float			x;
 	float			y;
 	float			width;
@@ -137,8 +137,6 @@ void Func_LoadFromSD()
 	isoFile_init( isoFile_topLevel );
 
 	pMenuContext->setActiveFrame(MenuContext::FRAME_FILEBROWSER,loadRomMode);
-	if(Autoboot)
-		strncpy(isoFile_topLevel->name, AutobootPath, sizeof(isoFile_topLevel->name));
 	fileBrowserFrame_OpenDirectory(isoFile_topLevel);
 }
 
@@ -178,8 +176,6 @@ void Func_LoadFromUSB()
 	isoFile_init( isoFile_topLevel );
 	
 	pMenuContext->setActiveFrame(MenuContext::FRAME_FILEBROWSER,loadRomMode);
-	if(Autoboot)
-		strncpy(isoFile_topLevel->name, AutobootPath, sizeof(isoFile_topLevel->name));
 	fileBrowserFrame_OpenDirectory(isoFile_topLevel);
 #else
 	menu::MessageBox::getInstance().setMessage("Available only for Wii");

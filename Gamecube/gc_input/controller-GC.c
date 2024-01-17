@@ -78,7 +78,8 @@ static button_t analog_sources[] = {
 };
 
 static button_t menu_combos[] = {
-	{ 0, PAD_BUTTON_START|PAD_BUTTON_X|PAD_BUTTON_B, "Start+X+B" },
+	{ 0, PAD_BUTTON_X|PAD_BUTTON_Y, "X+Y" },
+	{ 1, PAD_BUTTON_START|PAD_BUTTON_X, "Start+X" },
 };
 
 u32 gc_connected;
@@ -91,16 +92,15 @@ static unsigned int getButtons(int Control)
 	s8 substickX   = PAD_SubStickX(Control);
 	s8 substickY   = PAD_SubStickY(Control);
 	
-	// Originally ANALOG, was changed to mirror dpad
-	if(stickX    < -38) b |= PAD_BUTTON_LEFT;
-	if(stickX    >  38) b |= PAD_BUTTON_RIGHT;
-	if(stickY    >  38) b |= PAD_BUTTON_UP;
-	if(stickY    < -38) b |= PAD_BUTTON_DOWN;
+	if(stickX    < -48) b |= ANALOG_L;
+	if(stickX    >  48) b |= ANALOG_R;
+	if(stickY    >  48) b |= ANALOG_U;
+	if(stickY    < -48) b |= ANALOG_D;
 	
-	if(substickX < -38) b |= C_STICK_L;
-	if(substickX >  38) b |= C_STICK_R;
-	if(substickY >  38) b |= C_STICK_U;
-	if(substickY < -38) b |= C_STICK_D;
+	if(substickX < -48) b |= C_STICK_L;
+	if(substickX >  48) b |= C_STICK_R;
+	if(substickY >  48) b |= C_STICK_U;
+	if(substickY < -48) b |= C_STICK_D;
 	
 	if(!(b & PAD_TRIGGER_Z)) b |= PAD_TRIGGER_Z_UP;
 
@@ -114,10 +114,21 @@ static inline u8 GCtoPSXAnalog(int a)
 	return a + 128; // PSX controls range 0-255
 }
 
-static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
+static inline s8 GCtoPSXMouse(s8 i)
+{
+	if(i > -4 && i < 4) return 0; // deadzone
+	int a = i * 4 / 3; // GC ranges -96 ~ 96 (192 values, PSX has 256)
+	if(a >= 128) a = 127; else if(a < -128) a = -128; // clamp
+	return a; // PSX mouse range -128-128
+}
+
+static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config, int psxType)
 {
 	if(padNeedScan){ gc_connected = PAD_ScanPads(); padNeedScan = 0; }
 	BUTTONS* c = Keys;
+	u16 gunX = c->gunX;
+	u16 gunY = c->gunY;
+	
 	memset(c, 0, sizeof(BUTTONS));
 	//Reset buttons & sticks
 	c->btns.All = 0xFFFF;
@@ -151,27 +162,42 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config)
 	c->btns.L3_BUTTON    = isHeld(config->L3);
 	c->btns.SELECT_BUTTON = isHeld(config->SELECT);
 
-	//adjust values by 128 cause PSX sticks range 0-255 with a 128 center pos
-	int stickX = 0, stickY = 0;
-	if(config->analogL->mask == ANALOG_AS_ANALOG){
-		stickX = PAD_StickX(Control);
-		stickY = PAD_StickY(Control);
-	} else if(config->analogL->mask == C_STICK_AS_ANALOG){
-		stickX = PAD_SubStickX(Control);
-		stickY = PAD_SubStickY(Control);
+	if(psxType == PSE_PAD_TYPE_NEGCON || psxType == PSE_PAD_TYPE_GUNCON || psxType == PSE_PAD_TYPE_GUN) {	
+		// Keep it within 0 to 1023
+		c->gunX += gunX + ((PAD_StickX(Control)) / 6);
+		c->gunY += gunY - ((PAD_StickY(Control)) / 6);
+		c->gunX = c->gunX > 1023 ? 1023 : (c->gunX < 0 ? 0 : c->gunX);
+		c->gunY = c->gunY > 1023 ? 1023 : (c->gunY < 0 ? 0 : c->gunY);
 	}
-	c->leftStickX = GCtoPSXAnalog(stickX);
-	c->leftStickY = GCtoPSXAnalog(config->invertedYL ? stickY : -stickY);
+	else if(psxType == PSE_PAD_TYPE_MOUSE) {
+		s8 stickX = PAD_StickX(Control);
+		s8 stickY = PAD_StickY(Control);
+		c->mouseX = GCtoPSXMouse(stickX);
+		c->mouseY = GCtoPSXMouse(config->invertedYL ? stickY : -stickY);
+	}
+	else {
+		//adjust values by 128 cause PSX sticks range 0-255 with a 128 center pos
+		int stickX = 0, stickY = 0;
+		if(config->analogL->mask == ANALOG_AS_ANALOG){
+			stickX = PAD_StickX(Control);
+			stickY = PAD_StickY(Control);
+		} else if(config->analogL->mask == C_STICK_AS_ANALOG){
+			stickX = PAD_SubStickX(Control);
+			stickY = PAD_SubStickY(Control);
+		}
+		c->leftStickX = GCtoPSXAnalog(stickX);
+		c->leftStickY = GCtoPSXAnalog(config->invertedYL ? stickY : -stickY);
 
-	if(config->analogR->mask == ANALOG_AS_ANALOG){
-		stickX = PAD_StickX(Control);
-		stickY = PAD_StickY(Control);
-	} else if(config->analogR->mask == C_STICK_AS_ANALOG){
-		stickX = PAD_SubStickX(Control);
-		stickY = PAD_SubStickY(Control);
+		if(config->analogR->mask == ANALOG_AS_ANALOG){
+			stickX = PAD_StickX(Control);
+			stickY = PAD_StickY(Control);
+		} else if(config->analogR->mask == C_STICK_AS_ANALOG){
+			stickX = PAD_SubStickX(Control);
+			stickY = PAD_SubStickY(Control);
+		}
+		c->rightStickX = GCtoPSXAnalog(stickX);
+		c->rightStickY = GCtoPSXAnalog(config->invertedYR ? stickY : -stickY);
 	}
-	c->rightStickX = GCtoPSXAnalog(stickX);
-	c->rightStickY = GCtoPSXAnalog(config->invertedYR ? stickY : -stickY);
 
 	// Return 1 if whether the exit button(s) are pressed
 	return isHeld(config->exit) ? 0 : 1;
@@ -231,7 +257,7 @@ controller_t controller_GC =
 	    .SELECT     = &buttons[14], // Start + Z
 	    .analogL    = &analog_sources[0], // Analog Stick
 	    .analogR    = &analog_sources[1], // C stick
-	    .exit       = &menu_combos[0], // Start+X+B
+	    .exit       = &menu_combos[1], // Start+X
 	    .invertedYL = 0,
 	    .invertedYR = 0,
 	  }

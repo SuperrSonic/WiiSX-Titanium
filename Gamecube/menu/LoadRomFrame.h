@@ -34,8 +34,5 @@ public:
 private:
 	
 };
-void Func_LoadFromSD();
-void Func_LoadFromDVD();
-void Func_LoadFromUSB();
 
 #endif

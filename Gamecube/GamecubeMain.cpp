@@ -16,7 +16,9 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
- 
+
+#include <libpcsxcore/system.h>
+
 #include <gccore.h>
 #include <malloc.h>
 #include <stdio.h>
@@ -28,15 +30,20 @@
 #include <time.h>
 #include <fat.h>
 #include <aesndlib.h>
-
 #ifdef DEBUGON
 # include <debug.h>
 #endif
-#include "../PsxCommon.h"
+#include <libpcsxcore/misc.h>
+#include <libpcsxcore/psxcommon.h>
+#include <libpcsxcore/psxmem.h>
+#include <libpcsxcore/r3000a.h>
+#include <libpcsxcore/sio.h>
+#include <libpcsxcore/cdrom.h>
 #include "wiiSXconfig.h"
 #include "menu/MenuContext.h"
 extern "C" {
-#include "../dfsound/spu_config.h"
+#include <libpcsxcore/lightrec/mem.h>
+#include "../pcsx_rearmed/plugins/dfsound/spu_config.h"
 #include "DEBUG.h"
 #include "fileBrowser/fileBrowser.h"
 #include "fileBrowser/fileBrowser-libfat.h"
@@ -49,6 +56,8 @@ extern "C" {
 #include "vm/vm.h"
 }
 
+#include <psemu_plugin_defs.h>
+
 #ifdef WII
 #include "MEM2.h"
 unsigned int MALLOC_MEM2 = 0;
@@ -58,10 +67,8 @@ extern u32 __di_check_ahbprot(void);
 }
 #endif //WII
 
-u32* xfb[2] = { NULL, NULL };	/*** Framebuffers ***/
-int whichfb = 0;        /*** Frame buffer toggle ***/
+u32* xfb[3] = { NULL, NULL, NULL };	/*** Framebuffers ***/
 GXRModeObj *vmode;				/*** Graphics Mode Object ***/
-#define DEFAULT_FIFO_SIZE ( 256 * 1024 )
 BOOL hasLoadedISO = FALSE;
 fileBrowser_file isoFile;  //the ISO file
 fileBrowser_file cddaFile; //the CDDA file
@@ -73,7 +80,8 @@ fileBrowser_file *biosFile = NULL;  //BIOS file
 FILE *emuLog;
 #endif
 
-PcsxConfig Config;
+extern "C" PcsxConfig Config;
+
 char dynacore;
 char biosDevice;
 char LoadCdBios=0;
@@ -81,6 +89,8 @@ char frameLimit;
 char frameSkip;
 extern char audioEnabled;
 char volume;
+char reverb;
+char deflicker;
 char showFPSonScreen;
 char printToScreen;
 char menuActive;
@@ -95,17 +105,14 @@ char autoSave;
 signed char autoSaveLoaded = 0;
 char screenMode = 0;
 char videoMode = 0;
-char videoWidth = 0;
-char videoFb = 1;
-char videoLinear = 0;
 char fileSortMode = 1;
 char padAutoAssign;
-char padType[2];
-char padAssign[2];
+char padType[4];
+char padAssign[4];
 char rumbleEnabled;
 char loadButtonSlot;
-char controllerType;
-char numMultitaps;
+char useDithering;
+char multitap1;	// Multitap in port 1, determined at runtime if we require this based on the number of controllers set.
 
 #define CONFIG_STRING_TYPE 0
 #define CONFIG_STRING_SIZE 256
@@ -114,27 +121,16 @@ char smbPassWord[CONFIG_STRING_SIZE];
 char smbShareName[CONFIG_STRING_SIZE];
 char smbIpAddr[CONFIG_STRING_SIZE];
 
-//int underclock = 0; //intended to prevent glitch where jump fails in PRLR
-char cfg_path[512] = {0};
+int in_type[8] = {
+   PSE_PAD_TYPE_NONE, PSE_PAD_TYPE_NONE,
+   PSE_PAD_TYPE_NONE, PSE_PAD_TYPE_NONE,
+   PSE_PAD_TYPE_NONE, PSE_PAD_TYPE_NONE,
+   PSE_PAD_TYPE_NONE, PSE_PAD_TYPE_NONE
+};
 
-int stop = 0;
+unsigned short in_keystate[8];
 
-
-extern u8 dimSwitch;
-bool writePlaylog = true;
-
-void nightMode(u8 amount)
-{
-	if(amount == 1)
-		amount = 0;
-	u8 sharp[7] = {0, 0, 21, amount, 21, 0, 0};
-	u8* vfilter = sharp;
-
-	GX_SetCopyFilter(vmode->aa,vmode->sample_pattern,GX_TRUE,vfilter);
-	GX_Flush();
-	VIDEO_Configure(vmode);
-	VIDEO_Flush();
-}
+extern "C" int stop;
 
 static struct {
 	const char* key;
@@ -146,13 +142,13 @@ static struct {
 } OPTIONS[] =
 { { "Audio", &audioEnabled, AUDIO_DISABLE, AUDIO_ENABLE },
   { "Volume", &volume, VOLUME_LOUDEST, VOLUME_LOW },
+  { "Reverb", &reverb, REVERB_DISABLE, REVERB_ENABLE },
+  { "Deflicker", &deflicker, DEFLICKER_DISABLE, DEFLICKER_ENABLE },
   { "FPS", &showFPSonScreen, FPS_HIDE, FPS_SHOW },
 //  { "Debug", &printToScreen, DEBUG_HIDE, DEBUG_SHOW },
   { "ScreenMode", &screenMode, SCREENMODE_4x3, SCREENMODE_16x9_PILLARBOX },
-  { "VideoMode", &videoMode, VIDEOMODE_AUTO, VIDEOMODE_DS },
-  { "VideoWidth", &videoWidth, VIDEOWIDTH_640, VIDEOWIDTH_720 },
-  { "VideoFb", &videoFb, VIDEOFB_512, VIDEOFB_640 },
-  { "VideoLinear", &videoLinear, LINEAR_OFF, LINEAR_2x },
+  { "VideoMode", &videoMode, VIDEOMODE_AUTO, VIDEOMODE_PROGRESSIVE },
+  { "Dithering", &useDithering, USEDITHER_NONE, USEDITHER_ALWAYS },
   { "FileSortMode", &fileSortMode, FILESORT_DIRS_MIXED, FILESORT_DIRS_FIRST },
   { "Core", &dynacore, DYNACORE_DYNAREC, DYNACORE_INTERPRETER },
   { "NativeDevice", &nativeSaveDevice, NATIVESAVEDEVICE_SD, NATIVESAVEDEVICE_CARDB },
@@ -165,12 +161,18 @@ static struct {
   { "PadAutoAssign", &padAutoAssign, PADAUTOASSIGN_MANUAL, PADAUTOASSIGN_AUTOMATIC },
   { "PadType1", &padType[0], PADTYPE_NONE, PADTYPE_WII },
   { "PadType2", &padType[1], PADTYPE_NONE, PADTYPE_WII },
+  { "PadType3", &padType[2], PADTYPE_NONE, PADTYPE_WII },
+  { "PadType4", &padType[3], PADTYPE_NONE, PADTYPE_WII },
   { "PadAssign1", &padAssign[0], PADASSIGN_INPUT0, PADASSIGN_INPUT3 },
   { "PadAssign2", &padAssign[1], PADASSIGN_INPUT0, PADASSIGN_INPUT3 },
+  { "PadAssign3", &padAssign[2], PADASSIGN_INPUT0, PADASSIGN_INPUT3 },
+  { "PadAssign4", &padAssign[3], PADASSIGN_INPUT0, PADASSIGN_INPUT3 },
   { "RumbleEnabled", &rumbleEnabled, RUMBLE_DISABLE, RUMBLE_ENABLE },
   { "LoadButtonSlot", &loadButtonSlot, LOADBUTTON_SLOT0, LOADBUTTON_DEFAULT },
-  { "ControllerType", &controllerType, CONTROLLERTYPE_STANDARD, CONTROLLERTYPE_ANALOG },
-//  { "NumberMultitaps", &numMultitaps, MULTITAPS_NONE, MULTITAPS_TWO },
+  { "ControllerType1", ((char*)(&in_type[0])+3), PSE_PAD_TYPE_NONE, PSE_PAD_TYPE_ANALOGPAD },
+  { "ControllerType2", ((char*)(&in_type[1])+3), PSE_PAD_TYPE_NONE, PSE_PAD_TYPE_ANALOGPAD },
+  { "ControllerType3", ((char*)(&in_type[2])+3), PSE_PAD_TYPE_NONE, PSE_PAD_TYPE_ANALOGPAD },
+  { "ControllerType4", ((char*)(&in_type[3])+3), PSE_PAD_TYPE_NONE, PSE_PAD_TYPE_ANALOGPAD },
   { "smbusername", smbUserName, CONFIG_STRING_TYPE, CONFIG_STRING_TYPE },
   { "smbpassword", smbPassWord, CONFIG_STRING_TYPE, CONFIG_STRING_TYPE },
   { "smbsharename", smbShareName, CONFIG_STRING_TYPE, CONFIG_STRING_TYPE },
@@ -185,7 +187,9 @@ void loadSettings(int argc, char *argv[])
 {
 	// Default Settings
 	audioEnabled     = 1; // Audio
-	volume           = VOLUME_LOUDEST;
+	volume           = VOLUME_MEDIUM;
+	reverb			 = REVERB_ENABLE;
+	deflicker		 = DEFLICKER_ENABLE;
 #ifdef RELEASE
 	showFPSonScreen  = 0; // Don't show FPS on Screen
 #else
@@ -195,64 +199,97 @@ void loadSettings(int argc, char *argv[])
 	printToSD        = 0; // Disable SD logging
 	frameLimit		 = 1; // Auto limit FPS
 	frameSkip		 = 0; // Disable frame skipping
-	iUseDither		 = 0; // Default dithering
+	useDithering		 = 1; // Default dithering
 	saveEnabled      = 0; // Don't save game
 	nativeSaveDevice = 0; // SD
 	saveStateDevice	 = 0; // SD
 	autoSave         = 1; // Auto Save Game
 	creditsScrolling = 0; // Normal menu for now
 	dynacore         = 0; // Dynarec
-#ifdef HW_RVL
-	screenMode		 = CONF_GetAspectRatio() == CONF_ASPECT_16_9 ? SCREENMODE_16x9 : 0; // Stretch FB horizontally
-#else
-	screenMode		 = SCREENMODE_4x3;
-#endif
+	screenMode		 = 0; // Stretch FB horizontally
 	videoMode		 = VIDEOMODE_AUTO;
-	videoWidth		 = VIDEOWIDTH_640;
-	videoFb          = VIDEOFB_640;
-	videoLinear      = LINEAR_2x;
 	fileSortMode	 = FILESORT_DIRS_FIRST;
 	padAutoAssign	 = PADAUTOASSIGN_AUTOMATIC;
 	padType[0]		 = PADTYPE_NONE;
 	padType[1]		 = PADTYPE_NONE;
+	padType[2]		 = PADTYPE_NONE;
+	padType[3]		 = PADTYPE_NONE;
 	padAssign[0]	 = PADASSIGN_INPUT0;
 	padAssign[1]	 = PADASSIGN_INPUT1;
+	padAssign[2]	 = PADASSIGN_INPUT2;
+	padAssign[3]	 = PADASSIGN_INPUT3;
 	rumbleEnabled	 = RUMBLE_ENABLE;
 	loadButtonSlot	 = LOADBUTTON_DEFAULT;
-	controllerType	 = CONTROLLERTYPE_STANDARD;
-	numMultitaps	 = MULTITAPS_NONE;
+	in_type[0]		 = PSE_PAD_TYPE_STANDARD;
+	in_type[1]		 = PSE_PAD_TYPE_STANDARD;
+	in_type[2]		 = PSE_PAD_TYPE_STANDARD;
+	in_type[3]		 = PSE_PAD_TYPE_STANDARD;
 	menuActive = 1;
 
 	//PCSX-specific defaults
 	memset(&Config, 0, sizeof(PcsxConfig));
-	Config.Cpu=dynacore;		//Dynarec core
 	strcpy(Config.Net,"Disabled");
 	Config.PsxOut = 1;
 	Config.HLE = 1;
 	Config.Xa = 0;  //XA enabled
 	Config.Cdda = 0; //CDDA enabled
-	spu_config.iVolume = 1024 - (volume * 192); //Volume="medium" in PEOPSspu
 	spu_config.iUseThread = 0;	// Don't enable, broken on GC/Wii
-	spu_config.iUseFixedUpdates = 1;
-	spu_config.iUseReverb = 0;
 	spu_config.iUseInterpolation = 1;
 	spu_config.iXAPitch = 0;
 	spu_config.iTempo = 0;
 	Config.PsxAuto = 1; //Autodetect
 	Config.cycle_multiplier = CYCLE_MULT_DEFAULT;
-	LoadCdBios = BOOTTHRUBIOS_YES;
-	biosDevice = BIOSDEVICE_SD;
+	Config.GpuListWalking = -1;
+	LoadCdBios = BOOTTHRUBIOS_NO;
+	
+	strcpy(Config.PluginsDir, "plugins");
+	strcpy(Config.Gpu, "builtin_gpu");
+	strcpy(Config.Spu, "builtin_spu");
+	strcpy(Config.Cdr, "builtin_cdr");
+	strcpy(Config.Pad1, "builtin_pad");
+	strcpy(Config.Pad2, "builtin_pad2");
+	strcpy(Config.Net, "Disabled");
 
 	//config stuff
 	fileBrowser_file* configFile_file;
 	int (*configFile_init)(fileBrowser_file*) = fileBrowser_libfat_init;
+	// Try SD always first.
+	configFile_file = &saveDir_libfat_Default;
+	if(configFile_init(configFile_file)) {                //only if device initialized ok
+		FILE* f = fopen( "sd:/wiisx/settings.cfg", "r" );  //attempt to open file
+		if(f) {        //open ok, read it
+			readConfig(f);
+			fclose(f);
+		}
+		f = fopen( "sd:/wiisx/controlG.cfg", "r" );  //attempt to open file
+		if(f) {
+			load_configurations(f, &controller_GC);					//read in GC controller mappings
+			fclose(f);
+		}
 #ifdef HW_RVL
-	if(argv[0][0] == 'u') {  //assume USB
+		f = fopen( "sd:/wiisx/controlC.cfg", "r" );  //attempt to open file
+		if(f) {
+			load_configurations(f, &controller_Classic);			//read in Classic controller mappings
+			fclose(f);
+		}
+		f = fopen( "sd:/wiisx/controlN.cfg", "r" );  //attempt to open file
+		if(f) {
+			load_configurations(f, &controller_WiimoteNunchuk);		//read in WM+NC controller mappings
+			fclose(f);
+		}
+		f = fopen( "sd:/wiisx/controlW.cfg", "r" );  //attempt to open file
+		if(f) {
+			load_configurations(f, &controller_Wiimote);			//read in Wiimote controller mappings
+			fclose(f);
+		}
+#endif //HW_RVL
+	}
+#ifdef HW_RVL
+	// On Wii, try USB if SD failed.
+	else {
 		configFile_file = &saveDir_libfat_USB;
 		if(configFile_init(configFile_file)) {                //only if device initialized ok
-			if(cfg_path[0] == NULL)
-				strcpy(cfg_path, "usb:/wiisx/settings.cfg");
-			FILE* f = fopen( cfg_path, "r" );  //attempt to open file
+			FILE* f = fopen( "usb:/wiisx/settings.cfg", "r" );  //attempt to open file
 			if(f) {        //open ok, read it
 				readConfig(f);
 				fclose(f);
@@ -262,7 +299,6 @@ void loadSettings(int argc, char *argv[])
 				load_configurations(f, &controller_GC);					//read in GC controller mappings
 				fclose(f);
 			}
-#ifdef HW_RVL
 			f = fopen( "usb:/wiisx/controlC.cfg", "r" );  //attempt to open file
 			if(f) {
 				load_configurations(f, &controller_Classic);			//read in Classic controller mappings
@@ -278,45 +314,9 @@ void loadSettings(int argc, char *argv[])
 				load_configurations(f, &controller_Wiimote);			//read in Wiimote controller mappings
 				fclose(f);
 			}
-#endif //HW_RVL
 		}
 	}
-	else /*if((argv[0][0]=='s') || (argv[0][0]=='/'))*/
-#endif //HW_RVL
-	{ //assume SD
-		configFile_file = &saveDir_libfat_Default;
-		if(configFile_init(configFile_file)) {                //only if device initialized ok
-			if(cfg_path[0] == NULL)
-				strcpy(cfg_path, "sd:/wiisx/settings.cfg");
-			FILE* f = fopen( cfg_path, "r" );  //attempt to open file
-			if(f) {        //open ok, read it
-				readConfig(f);
-				fclose(f);
-			}
-			f = fopen( "sd:/wiisx/controlG.cfg", "r" );  //attempt to open file
-			if(f) {
-				load_configurations(f, &controller_GC);					//read in GC controller mappings
-				fclose(f);
-			}
-#ifdef HW_RVL
-			f = fopen( "sd:/wiisx/controlC.cfg", "r" );  //attempt to open file
-			if(f) {
-				load_configurations(f, &controller_Classic);			//read in Classic controller mappings
-				fclose(f);
-			}
-			f = fopen( "sd:/wiisx/controlN.cfg", "r" );  //attempt to open file
-			if(f) {
-				load_configurations(f, &controller_WiimoteNunchuk);		//read in WM+NC controller mappings
-				fclose(f);
-			}
-			f = fopen( "sd:/wiisx/controlW.cfg", "r" );  //attempt to open file
-			if(f) {
-				load_configurations(f, &controller_Wiimote);			//read in Wiimote controller mappings
-				fclose(f);
-			}
-#endif //HW_RVL
-		}
-	}
+#endif
 #ifdef HW_RVL
 	// Handle options passed in through arguments
 	int i;
@@ -326,57 +326,46 @@ void loadSettings(int argc, char *argv[])
 #endif
 
 	//Test for Bios file
-	if(biosDevice != BIOSDEVICE_HLE)
-		if(checkBiosExists((int)biosDevice) == FILE_BROWSER_ERROR_NO_FILE)
+	if(biosDevice != BIOSDEVICE_HLE) {
+		if(checkBiosExists((int)biosDevice) == FILE_BROWSER_ERROR_NO_FILE) {
 			biosDevice = BIOSDEVICE_HLE;
+		}
+		else {
+			strcpy(Config.BiosDir, &((biosDevice == BIOSDEVICE_SD) ? &biosDir_libfat_Default : &biosDir_libfat_USB)->name[0]);
+			strcpy(Config.Bios, "/SCPH1001.BIN");
+		}
+	}
 
 	//Synch settings with Config
 	Config.Cpu=dynacore;
+	Config.SlowBoot = LoadCdBios;
+	spu_config.iVolume = 1024 - (volume * 192); //Volume="medium" in PEOPSspu
+	spu_config.iUseReverb = reverb;
 }
 
 void ScanPADSandReset(u32 dummy) 
 {
 //	PAD_ScanPads();
 	padNeedScan = wpadNeedScan = 1;
-	
-	// Something crashes the Wii when front buttons are pressed
-	// wii remote power button works though
-	
-//	if(!((*(u32*)0xCC003000)>>16))
-	//stop = 1;
+	if(!((*(u32*)0xCC003000)>>16))
+	stop = 1;
 }
 
 #ifdef HW_RVL
 void ShutdownWii() 
 {
-return;
-	//shutdown = 1;
-	//stop = 1;
+	shutdown = 1;
+	stop = 1;
 }
 #endif
 
-void video_mode_init(GXRModeObj *videomode, u32 *fb1, u32 *fb2)
+void video_mode_init(GXRModeObj *videomode, u32 *fb1, u32 *fb2, u32 *fb3)
 {
 	vmode = videomode;
 	xfb[0] = fb1;
 	xfb[1] = fb2;
+	xfb[2] = fb3;
 }
-
-// Plugin structure
-extern "C" {
-#include "GamecubePlugins.h"
-PluginTable plugins[] =
-	{ PLUGIN_SLOT_0,
-	  PLUGIN_SLOT_1,
-	  PLUGIN_SLOT_2,
-	  PLUGIN_SLOT_3,
-	  PLUGIN_SLOT_4,
-	  PLUGIN_SLOT_5 };
-}
-
-bool Autoboot;
-char AutobootROM[1024];
-char AutobootPath[1024];
 
 int main(int argc, char *argv[]) 
 {
@@ -396,22 +385,6 @@ int main(int argc, char *argv[])
 #else
 	VM_Init(ARAM_SIZE, MRAM_BACKING);		// Setup Virtual Memory with the entire ARAM
 #endif
-	if(argc > 2 && argv[1] != NULL && argv[2] != NULL)
-	{
-		Autoboot = true;
-		strncpy(AutobootPath, argv[1], sizeof(AutobootPath));
-		strncpy(AutobootROM, argv[2], sizeof(AutobootROM));
-	}
-	else
-	{
-		Autoboot = false;
-		memset(AutobootPath, 0, sizeof(AutobootPath));
-		memset(AutobootROM, 0, sizeof(AutobootROM));
-	}
-	
-	//Autoboot = true;
-	//strncpy(AutobootPath, "sd:/wiisx/isos/", sizeof(AutobootPath));
-	//strncpy(AutobootROM, "PRLR.cue", sizeof(AutobootROM));
 	
 	loadSettings(argc, argv);
 	MenuContext *menu = new MenuContext(vmode);
@@ -442,13 +415,7 @@ int main(int argc, char *argv[])
 	  init_network_thread();
   }
 #endif
-	if(Autoboot)
-	{
-		//if(strncasecmp(AutobootPath, "ntfs:/", 6) == 0)
-			//fileBrowser_libntfs_Mount();
-		menu->Autoboot();
-		Autoboot = false;
-	}
+	
 	while (menu->isRunning()) {}
 	
 	// Shut down AESND
@@ -461,21 +428,28 @@ int main(int argc, char *argv[])
 
 // loadISO loads an ISO file as current media to read from.
 int loadISOSwap(fileBrowser_file* file) {
-  
-  // Refresh file pointers
+    // Refresh file pointers
 	memset(&isoFile, 0, sizeof(fileBrowser_file));
 	memset(&cddaFile, 0, sizeof(fileBrowser_file));
 	memset(&subFile, 0, sizeof(fileBrowser_file));
-	
 	memcpy(&isoFile, file, sizeof(fileBrowser_file) );
 	
-	CDR_close();
+	SysPrintf("selected file: %s\n", &file->name[0]);
+
+	CdromId[0] = '\0';
+	CdromLabel[0] = '\0';
+	
 	SetIsoFile(&file->name[0]);
-	//might need to insert code here to trigger a lid open/close interrupt
-	if(CDR_open() < 0)
+	
+	if (ReloadCdromPlugin() < 0) {
 		return -1;
-	CheckCdrom();
-	LoadCdrom();
+	}
+	if (CDR_open() < 0) {
+		return -1;
+	}
+
+	SetCdOpenCaseTime(time(NULL) + 2);
+	LidInterrupt();
 	return 0;
 }
 
@@ -499,14 +473,16 @@ int loadISO(fileBrowser_file* file)
 	if(SysInit() < 0)
 		return -1;
 	hasLoadedISO = TRUE;
-	SysReset();
 	
 	char *tempStr = &file->name[0];
 	if((strstr(tempStr,".EXE")!=NULL) || (strstr(tempStr,".exe")!=NULL)) {
-		Load(file);
+		//TODO
+		SysReset();
+		//Load(file);
 	}
 	else {
 		CheckCdrom();
+		SysReset();
 		LoadCdrom();
 	}
 	
@@ -522,20 +498,24 @@ int loadISO(fileBrowser_file* file)
 			saveFile_init      = fileBrowser_libfat_init;
 			saveFile_deinit    = fileBrowser_libfat_deinit;
 			break;
-		case NATIVESAVEDEVICE_CARDA:
-		case NATIVESAVEDEVICE_CARDB:
-			// Adjust saveFile pointers
-			saveFile_dir       = (nativeSaveDevice==NATIVESAVEDEVICE_CARDA) ? &saveDir_CARD_SlotA:&saveDir_CARD_SlotB;
-			saveFile_readFile  = fileBrowser_CARD_readFile;
-			saveFile_writeFile = fileBrowser_CARD_writeFile;
-			saveFile_init      = fileBrowser_CARD_init;
-			saveFile_deinit    = fileBrowser_CARD_deinit;
-			break;
+		//case NATIVESAVEDEVICE_CARDA:
+		//case NATIVESAVEDEVICE_CARDB:
+		//	// Adjust saveFile pointers
+		//	saveFile_dir       = (nativeSaveDevice==NATIVESAVEDEVICE_CARDA) ? &saveDir_CARD_SlotA:&saveDir_CARD_SlotB;
+		//	saveFile_readFile  = fileBrowser_CARD_readFile;
+		//	saveFile_writeFile = fileBrowser_CARD_writeFile;
+		//	saveFile_init      = fileBrowser_CARD_init;
+		//	saveFile_deinit    = fileBrowser_CARD_deinit;
+		//	break;
 		}
 		// Try loading everything
 		saveFile_init(saveFile_dir);
-		LoadMcd(1,saveFile_dir);
-		LoadMcd(2,saveFile_dir);
+		
+		sprintf(Config.Mcd1,"%s/%s.mcd",saveFile_dir,CdromId);
+		sprintf(Config.Mcd2,"%s/%s-2.mcd",saveFile_dir,CdromId);
+		SysPrintf("Memory cards:\r\nMcd1 [%s]\r\nMcd2 [%s]\r\n", Config.Mcd1, Config.Mcd2);
+		LoadMcds(Config.Mcd1, Config.Mcd2);
+		
 		saveFile_deinit(saveFile_dir);
 		
 		switch (nativeSaveDevice)
@@ -546,12 +526,12 @@ int loadISO(fileBrowser_file* file)
 		case NATIVESAVEDEVICE_USB:
 			autoSaveLoaded = NATIVESAVEDEVICE_USB;
 			break;
-		case NATIVESAVEDEVICE_CARDA:
-			autoSaveLoaded = NATIVESAVEDEVICE_CARDA;
-			break;
-		case NATIVESAVEDEVICE_CARDB:
-			autoSaveLoaded = NATIVESAVEDEVICE_CARDB;
-			break;
+		//case NATIVESAVEDEVICE_CARDA:
+		//	autoSaveLoaded = NATIVESAVEDEVICE_CARDA;
+		//	break;
+		//case NATIVESAVEDEVICE_CARDB:
+		//	autoSaveLoaded = NATIVESAVEDEVICE_CARDB;
+		//	break;
 		}
 	}	
 	
@@ -559,82 +539,6 @@ int loadISO(fileBrowser_file* file)
 }
 
 void setOption(char* key, char* valuePointer){
-
-	bool isString = valuePointer[0] == '"';
-	//char value = 0;
-	
-	if(isString) {
-		char* p = valuePointer++;
-		while(*++p != '"');
-		*p = 0;
-	} //else
-		//value = atoi(valuePointer);
-	
-	unsigned int i = 0;
-	for(i=0; i<20; i++){
-		if(!strcmp("settings-path", key)) {
-			sprintf(cfg_path, "%s", valuePointer);
-		}
-		else if(!strcmp("--no-playlog", key)) {
-				writePlaylog = false;
-		}
-		else if(!strcmp("--night-hard", key)) {
-				nightMode(dimSwitch);
-				dimSwitch = 4; //prevents reset button from turning it off
-		}
-		else if(!strcmp("--night", key)) {
-				nightMode(dimSwitch);
-		}
-		else if(!strcmp("--night-lite", key)) {
-				dimSwitch = 12;
-				nightMode(dimSwitch);
-		}
-		else if(!strcmp("--vol-medium", key)) {
-				spu_config.iVolume = 1024 - (3 * 192);
-		}
-		else if(!strcmp("--vol-loudest", key)) {
-				spu_config.iVolume = 1024 - (1 * 192);
-		}
-		else if(!strcmp("--frameskip", key)) {
-				frameSkip = 1;
-		}
-		else if(!strcmp("--no-linear", key)) {
-					videoLinear = 0;
-		}
-		else if(!strcmp("--linear", key)) {
-					videoLinear = 1;
-		}
-		else if(!strcmp("--vi-width-full", key)) {
-					videoWidth = 2;
-		}
-		else if(!strcmp("--vi-width-accurate", key)) {
-					videoWidth = 1; //useless option really
-		}
-		else if(!strcmp("--force-wide-alt", key)) {
-			//scales to 512px wide, allowing pixel-perfect in a ton of games, when combined with 2x
-					screenMode = 1;
-		}
-		else if(!strcmp("--force-wide", key)) {
-			//scales to 512px wide, allowing pixel-perfect in a ton of games, when combined with 2x
-					screenMode = 2;
-		}
-		else if(!strcmp("--240p", key)) {
-					videoMode = 4;
-		}
-		else if(!strcmp("--doublestrike", key)) {
-					videoMode = 4;
-		}
-		else if(!strcmp("--non-interlace", key)) {
-					videoMode = 4;
-		} else if(!strcmp("ps1-path", key)) {
-			sprintf(cfg_path, "%s", valuePointer);
-		} //else if(!strcmp("--underclock-cpu", key)) {
-			//underclock = 1;
-		//}
-		//break;
-	}
-
-#if 0
 	bool isString = valuePointer[0] == '"';
 	char value = 0;
 	
@@ -656,7 +560,6 @@ void setOption(char* key, char* valuePointer){
 			break;
 		}
 	}
-#endif
 }
 
 void handleConfigPair(char* kv){
@@ -689,12 +592,6 @@ void writeConfig(FILE* f){
 
 extern "C" {
 //System Functions
-void go(void) {
-	Config.PsxOut = 0;
-	stop = 0;
-	psxCpu->Execute();
-}
-
 int SysInit() {
 #if defined (CPU_LOG) || defined(DMA_LOG) || defined(CDR_LOG) || defined(HW_LOG) || \
 	defined(BIOS_LOG) || defined(GTE_LOG) || defined(PAD_LOG)
@@ -702,9 +599,13 @@ int SysInit() {
 #endif
 	Config.Cpu = dynacore;  //cpu may have changed  
 	psxInit();
-	LoadPlugins();
-	if(OpenPlugins() < 0)
+	if(LoadPlugins() < 0) {
+		SysPrintf("LoadPlugins() failed!\r\n");
+	}
+	if(OpenPlugins() < 0){
+		SysPrintf("LoadPlugins() failed!\r\n");
 		return -1;
+	}
   
 	//Init biosFile pointers and stuff
 	if(biosDevice != BIOSDEVICE_HLE) {
@@ -720,16 +621,24 @@ int SysInit() {
 		memcpy(biosFile,biosFile_dir,sizeof(fileBrowser_file));
 		strcat(biosFile->name, "/SCPH1001.BIN");
 		biosFile_init(biosFile);  //initialize the bios device (it might not be the same as ISO device)
-		Config.HLE = BIOS_USER_DEFINED;
+		Config.HLE = 0;
+		strcpy(Config.BiosDir, &biosFile_dir->name[0]);
+		strcpy(Config.Bios, "/SCPH1001.BIN");
 	} else {
-		Config.HLE = BIOS_HLE;
+		Config.HLE = 1;
 	}
 
 	return 0;
 }
 
+extern void pl_timing_prepare(int is_pal_);
+int g_emu_resetting;
 void SysReset() {
+	g_emu_resetting = 1;
+	// reset can run code, timing must be set
+	pl_timing_prepare(Config.PsxType);
 	psxReset();
+	g_emu_resetting = 0;
 }
 
 void SysStartCPU() {
@@ -737,6 +646,9 @@ void SysStartCPU() {
 	stop = 0;
 	psxCpu->Execute();
 }
+
+extern "C" void ClosePlugins();
+extern "C" void ReleasePlugins();
 
 void SysClose() 
 {
@@ -780,25 +692,6 @@ void SysPrintf(const char *fmt, ...)
 #endif
 }
 
-void *SysLoadLibrary(const char *lib) 
-{
-	int i;
-	for(i=0; i<NUM_PLUGINS; i++)
-		if((plugins[i].lib != NULL) && (!strcmp(lib, plugins[i].lib)))
-			return (void*)i;
-	return NULL;
-}
-
-void *SysLoadSym(void *lib, const char *sym) 
-{
-	PluginTable* plugin = plugins + (int)lib;
-	int i;
-	for(i=0; i<plugin->numSyms; i++)
-		if(plugin->syms[i].sym && !strcmp(sym, plugin->syms[i].sym))
-			return plugin->syms[i].pntr;
-	return NULL;
-}
-
 int framesdone = 0;
 void SysUpdate() 
 {
@@ -807,7 +700,82 @@ void SysUpdate()
 
 void SysRunGui() {}
 void SysMessage(const char *fmt, ...) {}
-void SysCloseLibrary(void *lib) {}
-const char *SysLibError() {	return NULL; }
+
+void pl_gun_byte2(int port, unsigned char byte)
+{
+}
+
+
+/* 0x000000 -> 0x200000: RAM (2 MiB)
+ * 0x200000 -> 0x210000: Parallel port (64 KiB)
+ * 0x210000 -> 0x220000: Scratchpad + I/O registers
+ * 0x220000 -> 0x2a0000: BIOS
+ * 0x2a0000 -> 0x6a0000: Code buffer (4 MiB) */
+static s8 lightrec_buf[0x2a0000 + CODE_BUFFER_SIZE] __attribute__((aligned(4096)));
+
+extern void * code_buffer;
+
+static bool lightrec_mmap_inited;
+
+#ifndef MAP_OFFSET
+#define MAP_OFFSET 0x0
+#endif
+
+int lightrec_init_mmap(void)
+{
+	if (lightrec_mmap_inited)
+		return 0;
+
+	psxP = &lightrec_buf[0x200000];
+
+	if (lightrec_mmap(lightrec_buf, MAP_OFFSET, 0x200000)
+	    || lightrec_mmap(lightrec_buf, MAP_OFFSET + 0x200000, 0x200000)
+	    || lightrec_mmap(lightrec_buf, MAP_OFFSET + 0x400000, 0x200000)
+	    || lightrec_mmap(lightrec_buf, MAP_OFFSET + 0x600000, 0x200000)) {
+		SysMessage(_("Error mapping RAM"));
+		return -1;
+	}
+
+	psxM = (s8 *) MAP_OFFSET;
+
+	if (lightrec_mmap(&lightrec_buf[0x220000],
+			  MAP_OFFSET + 0x1fc00000, 0x80000)) {
+		SysMessage(_("Error mapping BIOS"));
+		return -1;
+	}
+
+	psxR = (s8 *) (MAP_OFFSET + 0x1fc00000);
+
+	if (lightrec_mmap(&lightrec_buf[0x210000],
+			  MAP_OFFSET + 0x1f800000, 0x10000)) {
+		SysMessage(_("Error mapping I/O"));
+		return -1;
+	}
+
+	psxH = (s8 *) (MAP_OFFSET + 0x1f800000);
+
+	if (lightrec_mmap(&lightrec_buf[0x2a0000],
+			  MAP_OFFSET + 0x800000, CODE_BUFFER_SIZE)) {
+		SysMessage(_("Error mapping I/O"));
+		return -1;
+	}
+
+	code_buffer = (void *)(MAP_OFFSET + 0x800000);
+	lightrec_mmap_inited = true;
+
+	return 0;
+}
+
+void lightrec_free_mmap(void)
+{
+}
+
+void PreSaveState() {
+	psxM = lightrec_buf;
+}
+
+void PostSaveState() {
+	psxM = (s8 *) MAP_OFFSET;
+}
 
 } //extern "C"

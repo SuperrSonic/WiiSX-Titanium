@@ -31,13 +31,14 @@ extern "C" {
 #include "../gc_input/controller.h"
 #ifdef WII
 #include <di/di.h>
-#include "utils/playlog.h"
+#include <ogc/machine/processor.h>
 #endif 
 }
 
-extern bool writePlaylog;
-
 extern char shutdown;
+#ifdef WII
+bool isWiiU = (*(vu16*)0xCD8005A0 == 0xCAFE) && CONF_GetAspectRatio();
+#endif
 
 namespace menu {
 
@@ -45,10 +46,7 @@ Gui::Gui()
 	: fade(9)
 {
 	menuLogo = new Logo();
-	if(screenMode < 1)
-		menuLogo->setLocation(570.0, 70.0, -150.0);
-	else
-		menuLogo->setLocation(620.0, 70.0, -150.0);
+	menuLogo->setLocation(570.0, 70.0, -150.0);
 	menuLogo->setVisible(true);
 }
 
@@ -82,6 +80,17 @@ void Gui::draw()
 	Focus::getInstance().updateFocus();
 	if(padAutoAssign) auto_assign_controllers();
 	//Update time??
+
+#ifdef WII
+	// Adjust Wii U aspect ratio via DMCU
+	static char oldScreenMode = -1;
+	if (isWiiU && (oldScreenMode != screenMode)) {
+		write32(0xd8006a0, screenMode ? 0x30000004 : 0x30000002);
+		mask32(0xd8006a8, 0, 2);
+		oldScreenMode = screenMode;
+	}
+#endif
+
 	//Get graphics framework and pass to Frame draw fns?
 	gfx->drawInit();
 	drawBackground();
@@ -115,13 +124,14 @@ void Gui::draw()
 		{
 			VIDEO_SetBlack(true);
 			VIDEO_Flush();
-#ifdef WII
-			//Update message board time
-			//if(Autoboot)
-			if(writePlaylog)
-				Playlog_Exit();
-#endif
 		 	VIDEO_WaitVSync();
+#ifdef WII
+			// If this is a Wii U, restore the original aspect ratio
+			if(isWiiU) {
+				write32(0xd8006a0, 0x30000004);
+				mask32(0xd8006a8, 0, 2);
+			}
+#endif
 			if(shutdown==1)	//Power off System
 				SYS_ResetSystem(SYS_POWEROFF, 0, 0);
 			else			//Return to Loader
@@ -140,16 +150,19 @@ void Gui::draw()
 					*(volatile unsigned int*)0xCC003024 = 0;  //reboot
 			  }
 #else
-				if(*(volatile unsigned int*)0x80001804 == 0x53545542 &&
-					*(volatile unsigned int*)0x80001808 == 0x48415858)
+				#define HBC_STUB 0x53545542
+				#define HBC_HAXX 0x48415858
+				//Load HBC Stub if STUBAXX signature is present
+				if(*(volatile unsigned int*)0x80001804 == HBC_STUB &&
+					*(volatile unsigned int*)0x80001808 == HBC_HAXX)
 					rld();
-				else
-					SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+				else // Wii channel support
+					SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0); // Return to the Wii System Menu
 #endif
 			}
 		}
-		/* The increment value was 3 */
-		char increment = 8;
+
+		char increment = 3;
 		fade = fade +increment > 255 ? 255 : fade + increment;
 	}
 

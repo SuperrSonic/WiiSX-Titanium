@@ -26,23 +26,14 @@
 #include "../libgui/CursorManager.h"
 #include "../libgui/MessageBox.h"
 #include "../wiiSXconfig.h"
-#include "../../PsxCommon.h"
+
+#include <libpcsxcore/psxcommon.h>
 
 extern "C" {
-/*#include "../gc_memory/memory.h"
-#include "../gc_memory/Saves.h"
-#include "../main/rom.h"
-#include "../main/plugin.h"
-#include "../main/savestates.h"*/
 #include "../fileBrowser/fileBrowser.h"
 #include "../fileBrowser/fileBrowser-libfat.h"
 #include "../fileBrowser/fileBrowser-CARD.h"
-extern int LoadMcd(int mcd, fileBrowser_file *savepath);
-extern int SaveMcd(int mcd, fileBrowser_file *savepath);
-extern long CDR_getTN(unsigned char *buffer);
 }
-
-extern bool Autoboot;
 
 void Func_ShowRomInfo();
 void Func_ResetROM();
@@ -67,20 +58,20 @@ void Func_ReturnFromCurrentRomFrame();
  */
 
 static char FRAME_STRINGS[8][15] =
-	{ "Reset Game",
+	{ "Restart Game",
 	  "Swap CD",
 	  "Load MemCards",
 	  "Save MemCards",
-	  "Show Game Info",
+	  "Show ISO Info",
 	  "Load State",
 	  "Save State",
-	  "Slot 1"};
+	  "Slot 0"};
 
 struct ButtonInfo
 {
 	menu::Button	*button;
 	int				buttonStyle;
-	char*			buttonString;
+	const char*			buttonString;
 	float			x;
 	float			y;
 	float			width;
@@ -105,12 +96,12 @@ struct ButtonInfo
 
 CurrentRomFrame::CurrentRomFrame()
 {
-	for (int i = Autoboot ? 2 : 0; i < NUM_FRAME_BUTTONS; i++)
+	for (int i = 0; i < NUM_FRAME_BUTTONS; i++)
 		FRAME_BUTTONS[i].button = new menu::Button(FRAME_BUTTONS[i].buttonStyle, &FRAME_BUTTONS[i].buttonString, 
 										FRAME_BUTTONS[i].x, FRAME_BUTTONS[i].y, 
 										FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].height);
 
-	for (int i = Autoboot ? 2 : 0; i < NUM_FRAME_BUTTONS; i++)
+	for (int i = 0; i < NUM_FRAME_BUTTONS; i++)
 	{
 		if (FRAME_BUTTONS[i].focusUp != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[i].focusUp].button);
 		if (FRAME_BUTTONS[i].focusDown != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_DOWN, FRAME_BUTTONS[FRAME_BUTTONS[i].focusDown].button);
@@ -124,8 +115,7 @@ CurrentRomFrame::CurrentRomFrame()
 												FRAME_BUTTONS[i].x+FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].y, 
 												FRAME_BUTTONS[i].y+FRAME_BUTTONS[i].height);
 	}
-	
-	setDefaultFocus(FRAME_BUTTONS[Autoboot ? 4 : 0].button);
+	setDefaultFocus(FRAME_BUTTONS[0].button);
 	setBackFunc(Func_ReturnFromCurrentRomFrame);
 	setEnabled(true);
 
@@ -150,40 +140,23 @@ long MoobyCDRgetTN(unsigned char *buffer);
 
 void Func_ShowRomInfo()
 {
-	char RomInfo[256] = "";
-	char buffer [50];
-
-#if 1
-	// scan backwards for space (0x20) and remove it
-	bool hasSp = false;
-	int i = 0;
-	for(i = 31; i > 0; --i) {
-		if(CdromLabel[31] == 0x20)
-			hasSp = true;
-		else
-			break;
-		
-		if(CdromLabel[i] != 0x20 && hasSp) {
-			CdromLabel[i+1] = 0;
-			break;
-		}
-	}
-#endif
+	char RomInfo[512] = "";
+	char buffer [128];
 	
-	sprintf(buffer,"CD-ROM Label: %s\n",CdromLabel);
-  strcat(RomInfo,buffer);
-  sprintf(buffer,"CD-ROM ID: %s\n", CdromId);
-  strcat(RomInfo,buffer);
-  sprintf(buffer,"ISO Size: %d Mb\n",isoFile.size/1024/1024);
-  strcat(RomInfo,buffer);
-  sprintf(buffer,"Country: %s\n",(!Config.PsxType) ? "NTSC":"PAL");
-  strcat(RomInfo,buffer);
-  sprintf(buffer,"BIOS: %s\n",(Config.HLE==BIOS_USER_DEFINED) ? "USER DEFINED":"HLE");
-  strcat(RomInfo,buffer);
-  /*unsigned char tracks[2];
-  CDR_getTN(&tracks[0]);
-  sprintf(buffer,"Number of tracks %i\n", tracks[1]);
-  strcat(RomInfo,buffer);*/
+	strcat(RomInfo,"\nCD-ROM Label: ");
+	int x = sizeof(CdromLabel)-1;
+	for(; x > 0; x--)
+		if(CdromLabel[x] && !isspace(CdromLabel[x]))
+			break;
+	strncat(RomInfo, CdromLabel, x < sizeof(CdromLabel) ? x+1 : sizeof(CdromLabel));
+	sprintf(buffer,"\nCD-ROM ID: %s\n", CdromId);
+	strcat(RomInfo,buffer);
+	sprintf(buffer,"ISO Size: %d Mb\n",isoFile.size/1024/1024);
+	strcat(RomInfo,buffer);
+	sprintf(buffer,"Country: %s\n",(!Config.PsxType) ? "NTSC":"PAL");
+	strcat(RomInfo,buffer);
+	sprintf(buffer,"BIOS: %s\n",(Config.HLE) ? "HLE":"USER DEFINED");
+	strcat(RomInfo,buffer);
 
 	menu::MessageBox::getInstance().setMessage(RomInfo);
 }
@@ -196,21 +169,21 @@ int SysInit();
 void SysClose();
 void CheckCdrom();
 void LoadCdrom();
+void PreSaveState();
+void PostSaveState();
 }
 
 void Func_SetPlayGame();
 
 void Func_ResetROM()
 {
-  if(menu::MessageBox::getInstance().askMessage("Reset game?")) {
   SysClose();
 	SysInit ();
 	CheckCdrom();
   SysReset();
 	LoadCdrom();
-	menu::MessageBox::getInstance().setMessage("Game has been reset.");
+	menu::MessageBox::getInstance().setMessage("Game restarted");
 	Func_SetPlayGame();
-  }
 }
 
 void Func_SwapCD()
@@ -219,126 +192,17 @@ void Func_SwapCD()
 	pMenuContext->setActiveFrame(MenuContext::FRAME_LOADROM,FileBrowserFrame::FILEBROWSER_SWAPCD);
 }
 
-extern "C" char mcd1Written;
-extern "C" char mcd2Written;
 extern "C" int LoadState(char* filename);
 extern "C" int SaveState(char* filename);
 
 void Func_LoadSave()
 {
-	if(!hasLoadedISO)
-	{
-		menu::MessageBox::getInstance().setMessage("Please load a ISO first");
-		return;
-	}
-
-	switch (nativeSaveDevice)
-  {
-  	case NATIVESAVEDEVICE_SD:
-  	case NATIVESAVEDEVICE_USB:
-  		// Adjust saveFile pointers
-  		saveFile_dir = (nativeSaveDevice==NATIVESAVEDEVICE_SD) ? &saveDir_libfat_Default:&saveDir_libfat_USB;
-  		saveFile_readFile  = fileBrowser_libfat_readFile;
-  		saveFile_writeFile = fileBrowser_libfat_writeFile;
-  		saveFile_init      = fileBrowser_libfat_init;
-  		saveFile_deinit    = fileBrowser_libfat_deinit;
-  		break;
-  	case NATIVESAVEDEVICE_CARDA:
-  	case NATIVESAVEDEVICE_CARDB:
-  		// Adjust saveFile pointers
-  		saveFile_dir       = (nativeSaveDevice==NATIVESAVEDEVICE_CARDA) ? &saveDir_CARD_SlotA:&saveDir_CARD_SlotB;
-  		saveFile_readFile  = fileBrowser_CARD_readFile;
-  		saveFile_writeFile = fileBrowser_CARD_writeFile;
-  		saveFile_init      = fileBrowser_CARD_init;
-  		saveFile_deinit    = fileBrowser_CARD_deinit;
-  		break;
-  }
-
-  // Try loading everything
-  int result = 0;
-  saveFile_init(saveFile_dir);
-  result += LoadMcd(1,saveFile_dir);
-  result += LoadMcd(2,saveFile_dir);
-  saveFile_deinit(saveFile_dir);
-
-	switch (nativeSaveDevice)
-	{
-		case NATIVESAVEDEVICE_SD:
-			if (result) menu::MessageBox::getInstance().setMessage("Loaded save from SD card");
-			else		menu::MessageBox::getInstance().setMessage("No saves found on SD card");
-			break;
-		case NATIVESAVEDEVICE_USB:
-			if (result) menu::MessageBox::getInstance().setMessage("Loaded save from USB device");
-			else		menu::MessageBox::getInstance().setMessage("No saves found on USB device");
-			break;
-		case NATIVESAVEDEVICE_CARDA:
-			if (result) menu::MessageBox::getInstance().setMessage("Loaded save from memcard in slot A");
-			else		menu::MessageBox::getInstance().setMessage("No saves found on memcard A");
-			break;
-		case NATIVESAVEDEVICE_CARDB:
-			if (result) menu::MessageBox::getInstance().setMessage("Loaded save from memcard in slot A");
-			else		menu::MessageBox::getInstance().setMessage("No saves found on memcard B");
-			break;
-	}
-	mcd1Written = mcd2Written = false;
+	// TODO: No longer necessary, remove this?
 }
 
 void Func_SaveGame()
 {
-  if(!mcd1Written && !mcd2Written) {
-    menu::MessageBox::getInstance().setMessage("Nothing to save");
-    return;
-  }
-	switch (nativeSaveDevice)
-  {
-  	case NATIVESAVEDEVICE_SD:
-  	case NATIVESAVEDEVICE_USB:
-  		// Adjust saveFile pointers
-  		saveFile_dir = (nativeSaveDevice==NATIVESAVEDEVICE_SD) ? &saveDir_libfat_Default:&saveDir_libfat_USB;
-  		saveFile_readFile  = fileBrowser_libfat_readFile;
-  		saveFile_writeFile = fileBrowser_libfat_writeFile;
-  		saveFile_init      = fileBrowser_libfat_init;
-  		saveFile_deinit    = fileBrowser_libfat_deinit;
-  		break;
-  	case NATIVESAVEDEVICE_CARDA:
-  	case NATIVESAVEDEVICE_CARDB:
-  		// Adjust saveFile pointers
-  		saveFile_dir       = (nativeSaveDevice==NATIVESAVEDEVICE_CARDA) ? &saveDir_CARD_SlotA:&saveDir_CARD_SlotB;
-  		saveFile_readFile  = fileBrowser_CARD_readFile;
-  		saveFile_writeFile = fileBrowser_CARD_writeFile;
-  		saveFile_init      = fileBrowser_CARD_init;
-  		saveFile_deinit    = fileBrowser_CARD_deinit;
-  		break;
-  }
-
-	// Try saving everything
-	int amountSaves = mcd1Written + mcd2Written;
-	int result = 0;
-  saveFile_init(saveFile_dir);
-  result += SaveMcd(1,saveFile_dir);
-  result += SaveMcd(2,saveFile_dir);
-  saveFile_deinit(saveFile_dir);
-
-	if (result>=amountSaves) {	
-		switch (nativeSaveDevice)
-		{
-			case NATIVESAVEDEVICE_SD:
-				menu::MessageBox::getInstance().setMessage("Saved game to SD card");
-				break;
-			case NATIVESAVEDEVICE_USB:
-				menu::MessageBox::getInstance().setMessage("Saved game to USB device");
-				break;
-			case NATIVESAVEDEVICE_CARDA:
-				menu::MessageBox::getInstance().setMessage("Saved game to memcard in Slot A");
-				break;
-			case NATIVESAVEDEVICE_CARDB:
-				menu::MessageBox::getInstance().setMessage("Saved game to memcard in Slot B");
-				break;
-		}
-		mcd1Written = mcd2Written = false;
-	}
-	else		menu::MessageBox::getInstance().setMessage("Failed to Save");
-
+	// TODO: No longer necessary, remove this?
 }
 
 #define SAVE_PATH "/wiisx/saves/"
@@ -346,7 +210,6 @@ static unsigned int which_slot = 0;
 
 void Func_LoadState()
 {
- if(menu::MessageBox::getInstance().askMessage("Load a Save State?")) {
 	char *filename = (char*)malloc(1024);
 #ifdef HW_RVL
 	sprintf(filename, "%s%s%s.st%d",(saveStateDevice==SAVESTATEDEVICE_USB)?"usb:":"sd:",
@@ -354,18 +217,18 @@ void Func_LoadState()
 #else
 	sprintf(filename, "sd:%s%s.st%d", SAVE_PATH, CdromId, which_slot);
 #endif
+	PreSaveState();
 	if(LoadState(filename) == 0) {
 		menu::MessageBox::getInstance().setMessage("Save State Loaded Successfully");
 	} else {
 		menu::MessageBox::getInstance().setMessage("Save doesn't exist");
 	}
+	PostSaveState();
 	free(filename);
- }
 }
 
 void Func_SaveState()
 {
- if(menu::MessageBox::getInstance().askMessage("Create a Save State?")) {
 	char *filename = (char*)malloc(1024);
 #ifdef HW_RVL
 	sprintf(filename, "%s%s%s.st%d",(saveStateDevice==SAVESTATEDEVICE_USB)?"usb:":"sd:",
@@ -373,21 +236,22 @@ void Func_SaveState()
 #else
 	sprintf(filename, "sd:%s%s.st%d", SAVE_PATH, CdromId, which_slot);
 #endif
+	PreSaveState();
 	if(SaveState(filename) == 0) {
 		menu::MessageBox::getInstance().setMessage("Save State Saved Successfully");
 	} else {
 		menu::MessageBox::getInstance().setMessage("Error Saving State");
 	}
+	PostSaveState();
   	free(filename);
- }
 }
 
 
 void Func_StateCycle()
 {
 	
-	which_slot = (which_slot+1) %9;
-	FRAME_STRINGS[7][5] = which_slot + '1';
+	which_slot = (which_slot+1) %10;
+	FRAME_STRINGS[7][5] = which_slot + '0';
 
 }
 

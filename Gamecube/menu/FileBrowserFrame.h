@@ -44,6 +44,5 @@ private:
 	u32 previousButtonsWii[4];
 
 };
-void fileBrowserFrame_AutoBootFile();
 
 #endif

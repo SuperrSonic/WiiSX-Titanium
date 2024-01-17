@@ -37,9 +37,9 @@ void Func_MessageBoxCancel();
 #define FRAME_BUTTONS messageBoxButtons
 #define FRAME_STRINGS messageBoxStrings
 
-static char FRAME_STRINGS[2][7] =
-	{ "Yes",
-	  "No"};
+static const char FRAME_STRINGS[2][7] =
+	{ "OK",
+	  "Cancel"};
 
 #define MESSAGEBOX_TEXT_WIDTH 512
 char messageBoxText[MESSAGEBOX_TEXT_WIDTH];
@@ -48,7 +48,7 @@ struct ButtonInfo
 {
 	menu::Button	*button;
 	int				buttonStyle;
-	char*			buttonString;
+	const char*		buttonString;
 	float			x;
 	float			y;
 	float			width;

@@ -34,6 +34,7 @@
 #include <iso9660.h>
 #include <di/di.h>
 #include <ogc/dvd.h>
+#include "m2loader.h"
 
 
 #ifdef HW_RVL
@@ -44,12 +45,13 @@ const DISC_INTERFACE* usb = &__io_usbstorage;
 const DISC_INTERFACE* dvd = &__io_wiidvd;
 const DISC_INTERFACE* carda = &__io_gcsda;
 const DISC_INTERFACE* cardb = &__io_gcsdb;
-
 #else
 const DISC_INTERFACE* dvd = &__io_gcdvd;
 const DISC_INTERFACE* carda = &__io_gcsda;
 const DISC_INTERFACE* cardb = &__io_gcsdb;
 const DISC_INTERFACE* sd2sp2 = &__io_gcsd2;
+const DISC_INTERFACE* gcloader = &__io_gcode;
+const DISC_INTERFACE* m2loader = &__io_m2ldr;
 #endif
 
 fileBrowser_file topLevel_libfat_Default =
@@ -212,8 +214,15 @@ int fileBrowser_libfat_init(fileBrowser_file* f){
 		}
  	}
 	else if(f->name[0] == 'u') {	// USB
-		if(fatMountSimple ("usb", usb)) {
-			res = 1;
+		int retries = 3;
+		for(int i = 0; i < retries; i++) {
+			if(fatMountSimple ("usb", usb)) {
+				res = 1;
+				break;
+			}
+			// my USB devices really seem to need this.
+			sleep(1);
+			if(res) break;
 		}
 	}
 	else if(f->name[0] == 'd') {	// DVD
@@ -224,7 +233,13 @@ int fileBrowser_libfat_init(fileBrowser_file* f){
 	return res;
 #else
 	if(f->name[0] == 's') {
-		if(sd2sp2->startup()) {
+		if(m2loader->startup()) {
+			res = fatMountSimple ("sd", m2loader);
+		}
+		if(!res && gcloader->startup()) {
+			res = fatMountSimple ("sd", gcloader);
+		}
+		if(!res && sd2sp2->startup()) {
 			res = fatMountSimple ("sd", sd2sp2);
 		}
 		if(!res && carda->startup()) {
@@ -266,7 +281,7 @@ int fileBrowser_libfat_deinit(fileBrowser_file* f){
 static FILE* fd;
 
 int fileBrowser_libfatROM_deinit(fileBrowser_file* f){
-  if(fd) {
+	if(fd) {
 		fclose(fd);
 	}
 	

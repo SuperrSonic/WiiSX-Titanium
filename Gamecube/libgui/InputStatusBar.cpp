@@ -31,7 +31,7 @@ extern "C" {
 #include "../gc_input/controller.h"
 //#include "../main/rom.h"
 }
-#include "../../PsxCommon.h"
+#include <libpcsxcore/psxcommon.h>
 
 namespace menu {
 
@@ -66,10 +66,7 @@ InputStatusBar::~InputStatusBar()
 }
 
 extern "C" BOOL hasLoadedISO;
-extern "C" char autoSave;
 extern "C" char CdromLabel[33];
-extern "C" char mcd1Written;
-extern "C" char mcd2Written;
 
 void InputStatusBar::drawComponent(Graphics& gfx)
 {
@@ -112,18 +109,10 @@ void InputStatusBar::drawComponent(Graphics& gfx)
     sprintf(buffer,"%s",(!Config.PsxType) ? "NTSC":"PAL");
 		text_y += 13;
 		IplFont::getInstance().drawString((int) box_x + 15, (int) text_y, buffer, 0.7, false);
-		if (autoSave)
-			sprintf(buffer,"AutoSave Enabled");
-		else if (!mcd1Written && !mcd2Written)
-			sprintf(buffer,"Nothing to Save");
-		else
-			sprintf(buffer,"Game Needs Saving");
-		text_y += 25;
-		IplFont::getInstance().drawString((int) box_x + 15, (int) text_y, buffer, 0.7, false);
 	}
 	gfx.disableScissor();
 	//Update controller availability
-	for (int i = 0; i < 2; i++)
+	for (int i = 0; i < 4; i++)
 	{
 		switch (padType[i])
 		{

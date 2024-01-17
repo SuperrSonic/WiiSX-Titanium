@@ -20,15 +20,10 @@
 
 #include <math.h>
 #include "GraphicsGX.h"
-
-#define DEFAULT_FIFO_SIZE		(256 * 1024)
-
-extern bool Autoboot;
+#include "../wiiSXconfig.h"
 
 extern "C" unsigned int usleep(unsigned int us);
-void video_mode_init(GXRModeObj *rmode, u32 *fb1, u32 *fb2);
-
-int is240p = 0;
+void video_mode_init(GXRModeObj *rmode, u32 *fb1, u32 *fb2, u32 *fb3);
 
 namespace menu {
 
@@ -49,21 +44,17 @@ Graphics::Graphics(GXRModeObj *rmode)
 	CONF_Init();
 #endif
 	VIDEO_Init();
-	
-	VIDEO_SetBlack(GX_TRUE);
-
-	//check pal
-	bool isPAL = false;
-	vmode = VIDEO_GetPreferredMode(&vmode_phys);
-	if (vmode == &TVPal576IntDfScale || vmode == &TVPal576ProgScale)
-		isPAL = true;
-
 	switch (videoMode)
 	{
 	case VIDEOMODE_AUTO:
 		//vmode = VIDEO_GetPreferredMode(NULL);
 		vmode = VIDEO_GetPreferredMode(&vmode_phys);
-
+#if 0
+		if(CONF_GetAspectRatio()) {
+			vmode->viWidth = 678;
+			vmode->viXOrigin = (VI_MAX_WIDTH_PAL - 678) / 2;
+		}
+#endif
 		if (memcmp( &vmode_phys, &TVPal528IntDf, sizeof(GXRModeObj)) == 0)
 			memcpy( &vmode_phys, &TVPal576IntDfScale, sizeof(GXRModeObj));
 		break;
@@ -76,34 +67,8 @@ Graphics::Graphics(GXRModeObj *rmode)
 		memcpy( &vmode_phys, vmode, sizeof(GXRModeObj));
 		break;
 	case VIDEOMODE_PROGRESSIVE:
-		vmode = isPAL ? &TVEurgb60Hz480Prog : &TVNtsc480Prog;
+		vmode = &TVNtsc480Prog;
 		memcpy( &vmode_phys, vmode, sizeof(GXRModeObj));
-		break;
-	case VIDEOMODE_DS:
-		is240p = 1;
-		vmode = isPAL ? &TVEurgb60Hz240DsAa : &TVNtsc240DsAa;
-		memcpy( &vmode_phys, vmode, sizeof(GXRModeObj));
-		break;
-	}
-	
-	//testing
-	//videoMode = VIDEOMODE_DS;
-	//vmode = isPAL ? &TVEurgb60Hz240DsAa : &TVNtsc240DsAa;
-	//memcpy( &vmode_phys, vmode, sizeof(GXRModeObj));
-
-	switch (videoWidth)
-	{
-	case VIDEOWIDTH_640:
-		vmode->viWidth   = 640;
-		//vmode->viXOrigin = 40; //default
-		break;
-	case VIDEOWIDTH_644:
-		vmode->viWidth   = 644;
-		vmode->viXOrigin = 38;
-		break;
-	case VIDEOWIDTH_720:
-		vmode->viWidth   = 720;
-		vmode->viXOrigin = 0;
 		break;
 	}
 
@@ -113,8 +78,9 @@ Graphics::Graphics(GXRModeObj *rmode)
 
 	xfb[0] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(vmode));
 	xfb[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(vmode));
+	xfb[2] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(vmode));
 
-	//console_init (xfb[0], 20, 64, vmode->fbWidth, vmode->xfbHeight, vmode->fbWidth * 2);
+	console_init (xfb[0], 20, 64, vmode->fbWidth, vmode->xfbHeight, vmode->fbWidth * 2);
 
 	VIDEO_SetNextFramebuffer(xfb[which_fb]);
 	VIDEO_Flush();
@@ -123,7 +89,7 @@ Graphics::Graphics(GXRModeObj *rmode)
 	which_fb ^= 1;
 
 	//Pass vmode, xfb[0] and xfb[1] back to main program
-	video_mode_init(vmode, (u32*)xfb[0], (u32*)xfb[1]);
+	video_mode_init(vmode, (u32*)xfb[0], (u32*)xfb[1], (u32*)xfb[2]);
 
 	//Perform GX init stuff here?
 	//GX_init here or in main?
@@ -143,12 +109,12 @@ void Graphics::init()
 	void *gpfifo = NULL;
 	GXColor background = {0, 0, 0, 0xff};
 
-	gpfifo = memalign(32,DEFAULT_FIFO_SIZE);
-	memset(gpfifo,0,DEFAULT_FIFO_SIZE);
-	GX_Init(gpfifo,DEFAULT_FIFO_SIZE);
+	gpfifo = memalign(32,GX_FIFO_MINSIZE);
+	memset(gpfifo,0,GX_FIFO_MINSIZE);
+	GX_Init(gpfifo,GX_FIFO_MINSIZE);
 	GX_SetCopyClear(background, GX_MAX_Z24);
 
-	GX_SetViewport(1.0f/24.0f,1.0f/24.0f,vmode->fbWidth,vmode->efbHeight,0,1);
+	GX_SetViewport(0,0,vmode->fbWidth,vmode->efbHeight,0,1);
 	yscale = GX_GetYScaleFactor(vmode->efbHeight,vmode->xfbHeight);
 	xfbHeight = GX_SetDispCopyYScale(yscale);
 	GX_SetScissor(0,0,vmode->fbWidth,vmode->efbHeight);
@@ -158,7 +124,7 @@ void Graphics::init()
 	GX_SetFieldMode(vmode->field_rendering,((vmode->viHeight==2*vmode->xfbHeight)?GX_ENABLE:GX_DISABLE));
  
 	if (vmode->aa)
-        GX_SetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_MID);
+		GX_SetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_LINEAR);
     else
 		GX_SetPixelFmt(GX_PF_RGB8_Z24, GX_ZC_LINEAR);
 
@@ -192,7 +158,7 @@ void Graphics::drawInit()
 	GX_SetZTexture(GX_ZT_DISABLE,GX_TF_Z16,0);	//GX_ZT_DISABLE or GX_ZT_REPLACE; set in gDP.cpp
 	GX_SetZCompLoc(GX_TRUE);	// Do Z-compare before texturing.
 	GX_SetFog(GX_FOG_NONE,0,1,0,1,(GXColor){0,0,0,255});
-	GX_SetViewport(1.0f/24.0f,1.0f/24.0f,vmode->fbWidth,vmode->efbHeight,0,1);
+	GX_SetViewport(0,0,vmode->fbWidth,vmode->efbHeight,0,1);
 	GX_SetCoPlanar(GX_DISABLE);
 	GX_SetClipMode(GX_CLIP_ENABLE);
 	GX_SetScissor(0,0,vmode->fbWidth,vmode->efbHeight);
@@ -233,7 +199,6 @@ void Graphics::swapBuffers()
 {
 //	printf("Graphics swapBuffers\n");
 //	if(which_fb==1) usleep(1000000);
-
 	GX_SetCopyClear((GXColor){0, 0, 0, 0xFF}, GX_MAX_Z24);
 	GX_CopyDisp(xfb[which_fb],GX_TRUE);
 	GX_Flush();
@@ -241,8 +206,7 @@ void Graphics::swapBuffers()
 	VIDEO_SetNextFramebuffer(xfb[which_fb]);
 	if(first_frame) {
 		first_frame = false;
-		if(!Autoboot)
-			VIDEO_SetBlack(GX_FALSE); //If autobooting we don't need this, otherwise it shows garbage
+		VIDEO_SetBlack(GX_FALSE);
 	}
 	VIDEO_Flush();
  	VIDEO_WaitVSync();
@@ -460,32 +424,17 @@ void Graphics::enableScissor(int x, int y, int width, int height)
 {
 	if(screenMode)
 	{
-		int x1 = (x+104)*vmode->fbWidth/848;
-		int x2 = (x+width+104)*vmode->fbWidth/848;
-		GX_SetScissor((u32) x1,(u32) y*vmode->efbHeight/480,(u32) x2-x1,(u32) height*vmode->efbHeight/480);
-	}
-	else {
-		GX_SetScissor((u32) (vmode->fbWidth==512)?(x-104):x,(u32) y*vmode->efbHeight/480,
-						(u32) (vmode->fbWidth==512)?(width+848):width,(u32) height*vmode->efbHeight/480);
-	}
-
-#if 0
-	if(screenMode)
-	{
 		int x1 = (x+104)*640/848;
 		int x2 = (x+width+104)*640/848;
 		GX_SetScissor((u32) x1,(u32) y,(u32) x2-x1,(u32) height);
 	}
 	else
 		GX_SetScissor((u32) x,(u32) y,(u32) width,(u32) height);
-#endif
 }
 
 void Graphics::disableScissor()
 {
-	GX_SetScissor((u32) 0,(u32) 0,(u32) vmode->fbWidth,(u32) vmode->efbHeight);
-	
-	//GX_SetScissor((u32) 0,(u32) 0,(u32) viewportWidth,(u32) viewportHeight); //Set to the same size as the viewport.
+	GX_SetScissor((u32) 0,(u32) 0,(u32) viewportWidth,(u32) viewportHeight); //Set to the same size as the viewport.
 }
 
 void Graphics::enableBlending(bool blend)
@@ -552,6 +501,13 @@ float Graphics::getCurrentTransparency(int index)
 	float alpha = (float)currentColor[index].a/255.0f;
 	float val = alpha * transparency;
 	return val;
+}
+
+void Graphics::setInGameVMode() {
+	// Set deflicker
+	GX_SetCopyFilter(vmode->aa,vmode->sample_pattern,deflicker ? GX_TRUE : GX_FALSE,vmode->vfilter);
+	
+	// TODO: eventually change video mode for sync here too
 }
 
 } //namespace menu 

@@ -30,6 +30,7 @@
 
 #include <gccore.h>
 #include <stdio.h>
+#include <psemu_plugin_defs.h>
 
 extern char padNeedScan, wpadNeedScan;
 extern u32 gc_connected;
@@ -65,6 +66,10 @@ typedef struct {
 	u8 leftStickY;
 	u8 rightStickX;
 	u8 rightStickY;
+	s8 mouseX;	// Min -0x80, Max 0x7F
+	s8 mouseY;	// Min -0x80, Max 0x7F
+	int gunX;	// Min 0, Max 1023
+	int gunY;	// Min 0, Max 1023
 } BUTTONS;
   
 
@@ -93,7 +98,7 @@ typedef struct {
 	// You should pass in controller num for this type
 	//   Not for the player number assigned
 	//   (eg use GC Controller 1, not player 1)
-	int (*GetKeys)(int, BUTTONS*, controller_config_t*);
+	int (*GetKeys)(int, BUTTONS*, controller_config_t*, int);
 	// Set the configuration for a controller of this type
 	// You should pass in physical controller num as above
 	void (*configure)(int, controller_config_t*);
@@ -135,7 +140,7 @@ typedef struct _virtualControllers_t {
 	controller_config_t* config; // This is no longer needed...
 } virtualControllers_t;
 
-extern virtualControllers_t virtualControllers[2];
+extern virtualControllers_t virtualControllers[4];
 
 // List of all the defined controller_t's
 #if defined(WII) && !defined(NO_BT)

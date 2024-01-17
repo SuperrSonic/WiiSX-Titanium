@@ -1,0 +1,89 @@
+   .rodata
+   .globl CursorPointTexture
+   .balign 32
+   CursorPointTexture:
+   .incbin	"@LIBGUI_RESOURCES_PATH@/CursorPoint.tx"
+   .globl CursorPointTexture_length
+   CursorPointTexture_length:
+   .long (CursorPointTexture_length - CursorPointTexture)
+
+   .globl CursorGrabTexture
+   .balign 32
+   CursorGrabTexture:
+   .incbin	"@LIBGUI_RESOURCES_PATH@/CursorGrab.tx"
+   .globl CursorGrabTexture_length
+   CursorGrabTexture_length:
+   .long (CursorGrabTexture_length - CursorGrabTexture)
+
+   .globl ButtonTexture
+   .balign 32
+   ButtonTexture:
+   .incbin	"@LIBGUI_RESOURCES_PATH@/Button.tx"
+   .globl ButtonTexture_length
+   ButtonTexture_length:
+   .long (ButtonTexture_length - ButtonTexture)
+
+   .globl ButtonFocusTexture
+   .balign 32
+   ButtonFocusTexture:
+   .incbin	"@LIBGUI_RESOURCES_PATH@/ButtonFocus.tx"
+   .globl ButtonFocusTexture_length
+   ButtonFocusTexture_length:
+   .long (ButtonFocusTexture_length - ButtonFocusTexture)
+
+   .globl StyleAButtonTlut
+   .balign 32
+   StyleAButtonTlut:
+   .incbin	"@LIBGUI_RESOURCES_PATH@/ButtonA.tlt"
+   .globl StyleAButtonTlut_length
+   StyleAButtonTlut_length:
+   .long (StyleAButtonTlut_length - StyleAButtonTlut)
+
+   .globl StyleAButtonTexture
+   .balign 32
+   StyleAButtonTexture:
+   .incbin	"@LIBGUI_RESOURCES_PATH@/ButtonA.tx"
+   .globl StyleAButtonTexture_length
+   StyleAButtonTexture_length:
+   .long (StyleAButtonTexture_length - StyleAButtonTexture)
+
+   .globl StyleAButtonFocusTexture
+   .balign 32
+   StyleAButtonFocusTexture:
+   .incbin	"@LIBGUI_RESOURCES_PATH@/ButtonAFoc.tx"
+   .globl StyleAButtonFocusTexture_length
+   StyleAButtonFocusTexture_length:
+   .long (StyleAButtonFocusTexture_length - StyleAButtonFocusTexture)
+
+   .globl StyleAButtonSelectOffTexture
+   .balign 32
+   StyleAButtonSelectOffTexture:
+   .incbin	"@LIBGUI_RESOURCES_PATH@/ButtonASelOff.tx"
+   .globl StyleAButtonSelectOffTexture_length
+   StyleAButtonSelectOffTexture_length:
+   .long (StyleAButtonSelectOffTexture_length - StyleAButtonSelectOffTexture)
+   
+   .globl StyleAButtonSelectOffFocusTexture
+   .balign 32
+   StyleAButtonSelectOffFocusTexture:
+   .incbin	"@LIBGUI_RESOURCES_PATH@/ButtonASelOffFoc.tx"
+   .globl StyleAButtonSelectOffFocusTexture_length
+   StyleAButtonSelectOffFocusTexture_length:
+   .long (StyleAButtonSelectOffFocusTexture_length - StyleAButtonSelectOffFocusTexture)
+
+   .globl StyleAButtonSelectOnTexture
+   .balign 32
+   StyleAButtonSelectOnTexture:
+   .incbin	"@LIBGUI_RESOURCES_PATH@/ButtonASelOn.tx"
+   .globl StyleAButtonSelectOnTexture_length
+   StyleAButtonSelectOnTexture_length:
+   .long (StyleAButtonSelectOnTexture_length - StyleAButtonSelectOnTexture)
+   
+   .globl StyleAButtonSelectOnFocusTexture
+   .balign 32
+   StyleAButtonSelectOnFocusTexture:
+   .incbin	"@LIBGUI_RESOURCES_PATH@/ButtonASelOnFoc.tx"
+   .globl StyleAButtonSelectOnFocusTexture_length
+   StyleAButtonSelectOnFocusTexture_length:
+   .long (StyleAButtonSelectOnFocusTexture_length - StyleAButtonSelectOnFocusTexture)
+   

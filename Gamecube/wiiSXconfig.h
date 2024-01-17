@@ -32,16 +32,18 @@ enum audioEnabled
 	AUDIO_ENABLE
 };
 
-enum ConfigXa //Config.Xa
+extern char reverb;
+enum ConfigReverb
 {
-	XA_ENABLE=0,
-	XA_DISABLE
+	REVERB_DISABLE=0,
+	REVERB_ENABLE
 };
 
-enum ConfigCdda //Config.Cdda
+extern char deflicker;
+enum ConfigDeflicker
 {
-	CDDA_ENABLE=0,
-	CDDA_DISABLE
+	DEFLICKER_DISABLE=0,
+	DEFLICKER_ENABLE
 };
 
 extern char volume;
@@ -88,7 +90,7 @@ enum frameSkip
 	FRAMESKIP_ENABLE,
 };
 
-extern int iUseDither;
+extern char useDithering;
 enum iUseDither
 {
 	USEDITHER_NONE=0,
@@ -161,31 +163,7 @@ enum videoMode
 	VIDEOMODE_AUTO=0,
 	VIDEOMODE_NTSC,
 	VIDEOMODE_PAL,
-	VIDEOMODE_PROGRESSIVE,
-	VIDEOMODE_DS
-};
-
-extern char videoWidth;
-enum videoWidth
-{
-	VIDEOWIDTH_640=0,
-	VIDEOWIDTH_644,
-	VIDEOWIDTH_720
-};
-
-extern char videoFb;
-enum videoFb
-{
-	VIDEOFB_512=0, //if the video is 256 or 512, integer scale it, so it's even sharper
-	VIDEOFB_640
-};
-
-extern char videoLinear;
-enum videoLinear
-{
-	LINEAR_OFF=0,
-	LINEAR_ON,
-	LINEAR_2x
+	VIDEOMODE_PROGRESSIVE
 };
 
 extern char fileSortMode;
@@ -202,7 +180,7 @@ enum padAutoAssign
 	PADAUTOASSIGN_AUTOMATIC
 };
 
-extern char padType[2];
+extern char padType[4];
 enum padType
 {
 	PADTYPE_NONE=0,
@@ -210,7 +188,7 @@ enum padType
 	PADTYPE_WII
 };
 
-extern char padAssign[2];
+extern char padAssign[4];
 enum padAssign
 {
 	PADASSIGN_INPUT0=0,
@@ -234,14 +212,6 @@ enum loadButtonSlot
 	LOADBUTTON_SLOT2,
 	LOADBUTTON_SLOT3,
 	LOADBUTTON_DEFAULT
-};
-
-extern char controllerType;
-enum controllerType
-{
-	CONTROLLERTYPE_STANDARD=0,
-	CONTROLLERTYPE_ANALOG,
-	CONTROLLERTYPE_LIGHTGUN
 };
 
 extern char numMultitaps;

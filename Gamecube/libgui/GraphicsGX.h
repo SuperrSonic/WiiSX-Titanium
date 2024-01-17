@@ -63,6 +63,7 @@ public:
 	void popTransparency();
 	void setTransparency(float f);
 	float getTransparency();
+	void setInGameVMode();
 
 private:
 	void applyCurrentColor();
@@ -71,7 +72,7 @@ private:
 	GXRModeObj vmode_phys;
 	int which_fb;
 	bool first_frame;
-	void *xfb[2];
+	void *xfb[3];
 	float depth, transparency;
 	float viewportWidth, viewportHeight;
 	FloatStack depthStack, transparencyStack;

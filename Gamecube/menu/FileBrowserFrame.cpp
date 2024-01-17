@@ -27,7 +27,8 @@
 #include "../libgui/MessageBox.h"
 #include "../libgui/FocusManager.h"
 #include "../libgui/CursorManager.h"
-#include "../../PsxCommon.h"
+
+#include <libpcsxcore/psxcommon.h>
 
 extern "C" {
 #include "../fileBrowser/fileBrowser.h"
@@ -56,7 +57,7 @@ void Func_Select10();
 #define FRAME_BUTTONS fileBrowserFrameButtons
 #define FRAME_STRINGS fileBrowserFrameStrings
 
-static char FRAME_STRINGS[3][5] =
+static const char FRAME_STRINGS[3][5] =
 	{ "Prev",
 	  "Next",
 	  ""};
@@ -66,7 +67,7 @@ struct ButtonInfo
 {
 	menu::Button	*button;
 	int				buttonStyle;
-	char*			buttonString;
+	const char*			buttonString;
 	float			x;
 	float			y;
 	float			width;
@@ -450,7 +451,6 @@ extern BOOL hasLoadedISO;
 extern char CdromId[10];
 extern char CdromLabel[33];
 extern signed char autoSaveLoaded;
-void Func_PlayGame();
 void Func_SetPlayGame();
 extern "C" {
 void newCD(fileBrowser_file *file);
@@ -469,65 +469,57 @@ void fileBrowserFrame_LoadFile(int i)
 		menu::Focus::getInstance().clearPrimaryFocus();
 	} else if (fileBrowserMode == FileBrowserFrame::FILEBROWSER_LOADISO) {
 		// We must select this file
-		int ret = loadISO(&dir_entries[i]);
-		if(!ret && !Autoboot)
-		{	// If the read succeeded.
-#if 1
-			// scan backwards for space (0x20) and remove it
-			bool hasSp = false;
-			int i = 0;
-			for(i = 31; i > 0; --i) {
-				if(CdromLabel[31] == 0x20)
-					hasSp = true;
-				else
-					break;
-				
-				if(CdromLabel[i] != 0x20 && hasSp) {
-					CdromLabel[i+1] = 0;
-					break;
-				}
-			}
-#endif
+		int ret = loadISO( &dir_entries[i] );
+		
+		if(!ret){	// If the read succeeded.
 			strcpy(feedback_string, "Loaded ");
 			strncat(feedback_string, filenameFromAbsPath(dir_entries[i].name), 36-7);
+
 			char RomInfo[512] = "";
-			char buffer [50];
+			char buffer [128];
 			strcat(RomInfo,feedback_string);
-			sprintf(buffer,"\nCD-ROM Label: %s\n",CdromLabel);
-			strcat(RomInfo,buffer);
-			sprintf(buffer,"CD-ROM ID: %s\n", CdromId);
+			strcat(RomInfo,"\nCD-ROM Label: ");
+			int x = sizeof(CdromLabel)-1;
+			for(; x > 0; x--)
+				if(CdromLabel[x] && !isspace(CdromLabel[x]))
+					break;
+			strncat(RomInfo, CdromLabel, x < sizeof(CdromLabel) ? x+1 : sizeof(CdromLabel));
+			sprintf(buffer,"\nCD-ROM ID: %s\n", CdromId);
 			strcat(RomInfo,buffer);
 			sprintf(buffer,"ISO Size: %d Mb\n",isoFile.size/1024/1024);
 			strcat(RomInfo,buffer);
 			sprintf(buffer,"Country: %s\n",(!Config.PsxType) ? "NTSC":"PAL");
 			strcat(RomInfo,buffer);
-			sprintf(buffer,"BIOS: %s\n",(Config.HLE==BIOS_USER_DEFINED) ? "USER DEFINED":"HLE");
+			sprintf(buffer,"BIOS: %s\n",(Config.HLE) ? "HLE":"USER DEFINED");
 			strcat(RomInfo,buffer);
-		//	unsigned char tracks[2];
-		//	CDR_getTN(&tracks[0]);
-		//	sprintf(buffer,"Number of tracks %i\n", tracks[1]);
-		//	strcat(RomInfo,buffer);
+			/*unsigned char tracks[2];
+      		CDR_getTN(&tracks[0]);
+      		sprintf(buffer,"Number of tracks %i\n", tracks[1]);
+			strcat(RomInfo,buffer);*/
+    		
+			
 			switch (autoSaveLoaded)
 			{
-				case NATIVESAVEDEVICE_NONE:
-					break;
-				case NATIVESAVEDEVICE_SD:
-					strcat(RomInfo,"\nFound & loaded save from SD card\n");
-					break;
-				case NATIVESAVEDEVICE_USB:
-					strcat(RomInfo,"\nFound & loaded save from USB device\n");
-					break;
-				case NATIVESAVEDEVICE_CARDA:
-					strcat(RomInfo,"\nFound & loaded save from memcard in slot A\n");
-					break;
-				case NATIVESAVEDEVICE_CARDB:
-					strcat(RomInfo,"\nFound & loaded save from memcard in slot B\n");
-					break;
+			case NATIVESAVEDEVICE_NONE:
+				break;
+			case NATIVESAVEDEVICE_SD:
+				strcat(RomInfo,"\nSave device: SD\n");
+				break;
+			case NATIVESAVEDEVICE_USB:
+				strcat(RomInfo,"\nSave device: USB\n");
+				break;
+			//case NATIVESAVEDEVICE_CARDA:
+			//	strcat(RomInfo,"\nFound & loaded save from memcard in slot A\n");
+			//	break;
+			//case NATIVESAVEDEVICE_CARDB:
+			//	strcat(RomInfo,"\nFound & loaded save from memcard in slot B\n");
+			//	break;
 			}
 			autoSaveLoaded = NATIVESAVEDEVICE_NONE;
+
 			menu::MessageBox::getInstance().setMessage(RomInfo);
 		}
-		else if(ret) // If not.
+		else		// If not.
 		{
 			menu::MessageBox::getInstance().setMessage(feedback_string);
 		}
@@ -549,7 +541,7 @@ void fileBrowserFrame_LoadFile(int i)
 		pMenuContext->setActiveFrame(MenuContext::FRAME_MAIN);
 		//if(hasLoadedISO) Func_SetPlayGame();
 		Func_SetPlayGame(); //hasLoadedISO will be set to False if SysInit() fails
-	}
+	} 
 	else if (fileBrowserMode == FileBrowserFrame::FILEBROWSER_SWAPCD) {
 		//TODO: Properly implement this
 		int ret = loadISOSwap( &dir_entries[i] );
@@ -560,17 +552,4 @@ void fileBrowserFrame_LoadFile(int i)
 	  }
 	  pMenuContext->setActiveFrame(MenuContext::FRAME_MAIN);
 	}
-}
-
-void fileBrowserFrame_AutoBootFile()
-{
-	int i;
-	for(i = 0; i < num_entries - 1; i++)
-		if(strcasestr(dir_entries[i].name, AutobootROM) != NULL)
-			break;
-	fileBrowserFrame_LoadFile(i);
-	pMenuContext->setActiveFrame(MenuContext::FRAME_MAIN);
-	Func_SetPlayGame();
-	Func_PlayGame();
-	return;
 }

@@ -13,45 +13,30 @@ jobs:
       uses: actions/checkout@master
       with:
         path: pcsxgc
-    
+
     - name: Checkout libogc2
       uses: actions/checkout@main
       with:
         repository: emukidid/libogc
         path: libogc
-        
-    - name: Checkout lightrec (e78ab28)
-      uses: actions/checkout@v2
-      with:
-        repository: pcercuei/lightrec
-        path: lightrec
-        ref: e78ab28449ed165c03d8f1fc00dcdc8f1a626513
-        
-    - name: Get GNU Lightning
-      run: |
-        wget http://ftp.gnu.org/gnu/lightning/lightning-2.2.1.tar.gz
-        tar -zxf lightning-2.2.1.tar.gz 
-    
+
     - name: add ppc gcc to PATH environment variable
       uses: myci-actions/export-env-var@1
       with:
         name: PATH
         value: $PATH:/opt/devkitpro/devkitPPC/bin
-    
-    - name: Build GNU Lightning
-      run: |
-        ./configure --host=powerpc-eabi --disable-shared --enable-static --disable-assertions --disable-disassembler --prefix=/ AR=powerpc-eabi-gcc-ar RANLIB=powerpc-eabi-gcc-ranlib CFLAGS="-O2 -fipa-pta -flto" ac_cv_func_mmap=no ac_cv_func_mremap=no
-        export DESTDIR=/opt/devkitpro/devkitPPC/powerpc-eabi/
-        make -C lib install
-        make -C include install
-      working-directory: lightning-2.2.1
-      
-    - name: Build lightrec
-      run: |
-        cmake -DCMAKE_TOOLCHAIN_FILE=/opt/devkitpro/cmake/GameCube.cmake -DCMAKE_INSTALL_PREFIX="" -DCMAKE_C_FLAGS="-fipa-pta -flto -Dfprintf=lightrec_fprintf" .
-        export DESTDIR=/opt/devkitpro/devkitPPC/powerpc-eabi/
-        make install
-      working-directory: lightrec
+
+    - name: Export CFLAGS
+      uses: myci-actions/export-env-var@1
+      with:
+        name: CFLAGS
+        value: -O3 -fipa-pta -flto -DNDEBUG
+
+    - name: Export CXXFLAGS
+      uses: myci-actions/export-env-var@1
+      with:
+        name: CXXFLAGS
+        value: -O3 -fipa-pta -flto -DNDEBUG
 
     - name: Checkout libfat
       uses: actions/checkout@main
@@ -66,35 +51,76 @@ jobs:
     - name: Build libfat
       run: make ogc-install
       working-directory: libfat
-      
-    - name: Build WiiSX (soft gfx)
+
+    - name: Copy release files
       run: |
-        make -f Makefile_Wii clean
-        make -f Makefile_Wii
-        mv WiiSX.dol release/apps/wiiSX/boot.dol
-      working-directory: pcsxgc/Gamecube
-            
+        cp -r Gamecube/release release
+        cp -r Gamecube/release release_gx
+        cp -r Gamecube/release release_unai
+      working-directory: pcsxgc
+
+    - name: Build WiiSX (peops gfx)
+      run: |
+        mkdir build_wii
+        cmake -B build_wii -DCMAKE_BUILD_TYPE=None -DWIISX_TARGET=NintendoWii -DGPU_PLUGIN=Peops
+        cmake --build build_wii
+        mv build_wii/WiiSX.dol release/apps/wiiSX/boot.dol
+      working-directory: pcsxgc
+
+    - name: Build WiiSX (gx gpu)
+      run: |
+        mkdir build_wii_gx
+        cmake -B build_wii_gx -DCMAKE_BUILD_TYPE=None -DWIISX_TARGET=NintendoWii -DGPU_PLUGIN=PeopsGX
+        cmake --build build_wii_gx
+        mv build_wii_gx/WiiSX.dol release_gx/apps/wiiSX/boot.dol
+      working-directory: pcsxgc
+
+    - name: Build WiiSX (unai gpu)
+      run: |
+        mkdir build_wii_unai
+        cmake -B build_wii_unai -DCMAKE_BUILD_TYPE=None -DWIISX_TARGET=NintendoWii -DGPU_PLUGIN=Unai
+        cmake --build build_wii_unai
+        mv build_wii_unai/WiiSX.dol release_unai/apps/wiiSX/boot.dol
+      working-directory: pcsxgc
+
     - name: Build CubeSX (soft gfx)
       run: |
-        make -f Makefile_Cube clean
-        make -f Makefile_Cube
-        mv CubeSX.dol release/CubeSX.dol
-      working-directory: pcsxgc/Gamecube
+        mkdir build_cube
+        cmake -B build_cube -DCMAKE_BUILD_TYPE=None -DWIISX_TARGET=NintendoGameCube -DGPU_PLUGIN=Peops
+        cmake --build build_cube
+        mv build_cube/CubeSX.dol release/CubeSX.dol
+      working-directory: pcsxgc
 
-    - name: Upload artifacts
+    - name: Build CubeSX (gx gpu)
+      run: |
+        mkdir build_cube_gx
+        cmake -B build_cube_gx -DCMAKE_BUILD_TYPE=None -DWIISX_TARGET=NintendoGameCube -DGPU_PLUGIN=PeopsGX
+        cmake --build build_cube_gx
+        mv build_cube_gx/CubeSX.dol release_gx/CubeSX.dol
+      working-directory: pcsxgc
+
+    - name: Build CubeSX (unai gpu)
+      run: |
+        mkdir build_cube_unai
+        cmake -B build_cube_unai -DCMAKE_BUILD_TYPE=None -DWIISX_TARGET=NintendoGameCube -DGPU_PLUGIN=Unai
+        cmake --build build_cube_unai
+        mv build_cube_unai/CubeSX.dol release_unai/CubeSX.dol
+      working-directory: pcsxgc
+
+    - name: Upload soft (Peops) CubeSX/WiiSX
       uses: actions/upload-artifact@main
       with:
         name: WiiSX
-        path: pcsxgc/Gamecube/release
-        
-    - name: Upload artifacts (lightrec)
+        path: pcsxgc/release
+
+    - name: Upload GX CubeSX/WiiSX
       uses: actions/upload-artifact@main
       with:
-        name: lightrec
-        path: /opt/devkitpro/devkitPPC/powerpc-eabi/lib/liblightrec.a
-        
-    - name: Upload artifacts (lightning)
+        name: WiiSX_GX
+        path: pcsxgc/release_gx
+
+    - name: Upload soft (Unai) CubeSX/WiiSX
       uses: actions/upload-artifact@main
       with:
-        name: lightning
-        path: /opt/devkitpro/devkitPPC/powerpc-eabi/lib/liblightning.a
+        name: WiiSX_Unai
+        path: pcsxgc/release_unai

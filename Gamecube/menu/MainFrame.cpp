@@ -56,29 +56,25 @@ void Func_Credits();
 void Func_ExitToLoader();
 void Func_PlayGame();
 
-bool autoboot_warn = false;
-bool need_reset = false;
-extern GXRModeObj *vmode;
-
-#define NUM_MAIN_BUTTONS 5
+#define NUM_MAIN_BUTTONS 6
 #define FRAME_BUTTONS mainFrameButtons
 #define FRAME_STRINGS mainFrameStrings
 
-char FRAME_STRINGS[7][16] =
-	{ "Load",
-	  "Game Data",
+static const char FRAME_STRINGS[7][20] =
+	{ "Load ISO",
+	  "Current ISO",
 	  "Settings",
-	  "Exit",
+	  "Credits",
+	  "Quit",
 	  "Play Game",
-	  "Resume Game",
-	  "Reset"};
+	  "Resume Game"};
 
 
 struct ButtonInfo
 {
 	menu::Button	*button;
 	int				buttonStyle;
-	char*			buttonString;
+	const char*		buttonString;
 	float			x;
 	float			y;
 	float			width;
@@ -91,11 +87,12 @@ struct ButtonInfo
 	ButtonFunc		returnFunc;
 } FRAME_BUTTONS[NUM_MAIN_BUTTONS] =
 { //	button	buttonStyle	buttonString		x		y		width	height	Up	Dwn	Lft	Rt	clickFunc				returnFunc
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[0],	315.0,	autoboot_warn ? 500.0 : 60.0,	200.0,	56.0,	 5,	 1,	-1,	-1,	Func_LoadROM,			NULL }, // Load ROM
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[1],	315.0,	autoboot_warn ? 60.0 : 120.0,	200.0,	56.0,	 0,	 2,	-1,	-1,	Func_CurrentROM,		NULL }, // Current ROM
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[2],	315.0,	autoboot_warn ? 120.0 : 180.0,	200.0,	56.0,	 1,	 3,	-1,	-1,	Func_Settings,			NULL }, // Settings
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[3],	315.0,	autoboot_warn ? 180.0 : 240.0,	200.0,	56.0,	 2,	 4,	-1,	-1,	Func_ExitToLoader,		NULL }, // Exit to Loader
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[4],	315.0,	autoboot_warn ? 240.0 : 300.0,	200.0,	56.0,	 3,	 5,	-1,	-1,	Func_PlayGame,			NULL }, // Play/Resume Game
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[0],	315.0,	 60.0,	200.0,	56.0,	 5,	 1,	-1,	-1,	Func_LoadROM,			NULL }, // Load ROM
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[1],	315.0,	120.0,	200.0,	56.0,	 0,	 2,	-1,	-1,	Func_CurrentROM,		NULL }, // Current ROM
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[2],	315.0,	180.0,	200.0,	56.0,	 1,	 3,	-1,	-1,	Func_Settings,			NULL }, // Settings
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[3],	315.0,	240.0,	200.0,	56.0,	 2,	 4,	-1,	-1,	Func_Credits,			NULL }, // Credits
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[4],	315.0,	300.0,	200.0,	56.0,	 3,	 5,	-1,	-1,	Func_ExitToLoader,		NULL }, // Exit to Loader
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[5],	315.0,	360.0,	200.0,	56.0,	 4,	 0,	-1,	-1,	Func_PlayGame,			NULL }, // Play/Resume Game
 };
 
 MainFrame::MainFrame()
@@ -110,13 +107,8 @@ MainFrame::MainFrame()
 
 	for (int i = 0; i < NUM_MAIN_BUTTONS; i++)
 	{
-		/* The "get it done" way */
-		if (autoboot_warn && i != 1)
-		   if (FRAME_BUTTONS[i].focusUp != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[i].focusUp].button);
-		if (!autoboot_warn && i != 0)
-		   if (FRAME_BUTTONS[i].focusUp != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[i].focusUp].button);
-		if (i != 4)
-		   if (FRAME_BUTTONS[i].focusDown != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_DOWN, FRAME_BUTTONS[FRAME_BUTTONS[i].focusDown].button);
+		if (FRAME_BUTTONS[i].focusUp != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[i].focusUp].button);
+		if (FRAME_BUTTONS[i].focusDown != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_DOWN, FRAME_BUTTONS[FRAME_BUTTONS[i].focusDown].button);
 		if (FRAME_BUTTONS[i].focusLeft != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_LEFT, FRAME_BUTTONS[FRAME_BUTTONS[i].focusLeft].button);
 		if (FRAME_BUTTONS[i].focusRight != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, FRAME_BUTTONS[FRAME_BUTTONS[i].focusRight].button);
 		FRAME_BUTTONS[i].button->setActive(true);
@@ -127,7 +119,7 @@ MainFrame::MainFrame()
 												FRAME_BUTTONS[i].x+FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].y, 
 												FRAME_BUTTONS[i].y+FRAME_BUTTONS[i].height);
 	}
-	setDefaultFocus(FRAME_BUTTONS[autoboot_warn ? 1 : 0].button);
+	setDefaultFocus(FRAME_BUTTONS[0].button);
 	setEnabled(true);
 
 }
@@ -144,29 +136,8 @@ MainFrame::~MainFrame()
 
 extern MenuContext *pMenuContext;
 
-extern "C" {
-void SysReset();
-void SysInit();
-void SysClose();
-void CheckCdrom();
-void LoadCdrom();
-}
-
 void Func_LoadROM()
 {
-	if(autoboot_warn)
-	{
-		// Shortcut for Reset
-		if(menu::MessageBox::getInstance().askMessage("Are you sure?")) {
-			SysClose();
-			SysInit ();
-			CheckCdrom();
-  			SysReset();
-			LoadCdrom();
-			menu::MessageBox::getInstance().setMessage("Game has been reset.");
-		}
-		return;
-	}
 	pMenuContext->setActiveFrame(MenuContext::FRAME_LOADROM,FileBrowserFrame::FILEBROWSER_LOADISO);
 }
 
@@ -185,47 +156,40 @@ void Func_CurrentROM()
 
 void Func_Settings()
 {
-	if(screenMode < 1)
-		menu::Gui::getInstance().menuLogo->setLocation(580.0, 410.0, -50.0);
-	else
-		menu::Gui::getInstance().menuLogo->setLocation(620.0, 410.0, -50.0);
+	menu::Gui::getInstance().menuLogo->setLocation(580.0, 410.0, -50.0);
 	pMenuContext->setActiveFrame(MenuContext::FRAME_SETTINGS,SettingsFrame::SUBMENU_GENERAL);
 }
 
 void Func_Credits()
 {
-#if 0
 	char CreditsInfo[512] = "";
 #ifdef HW_RVL
 	int iosversion = IOS_GetVersion();
-	sprintf(CreditsInfo,"WiiSX Beta 2.1 - emulatemii.com - IOS %i\n", iosversion);
+	sprintf(CreditsInfo,"WiiSX Beta 4.1 - IOS %i\n", iosversion);
 #else
-	sprintf(CreditsInfo,"CubeSX Beta 2.1 - emulatemii.com\n");
+	sprintf(CreditsInfo,"CubeSX Beta 4.1\n");
 #endif
 	strcat(CreditsInfo,"\n");
 	strcat(CreditsInfo,"Wii64 Team:\n");
-	strcat(CreditsInfo,"    emu_kidid - general coding\n");
-	strcat(CreditsInfo,"      sepp256 - graphics & menu\n");
-	strcat(CreditsInfo,"tehpola - audio  \n");
+	strcat(CreditsInfo,"emu_kidid / sepp256 / tehpola\n");
 	strcat(CreditsInfo,"\n");
-	strcat(CreditsInfo,"Special Thanks To:\n");
-	strcat(CreditsInfo,"       drmr - for menu graphics\n");
-	strcat(CreditsInfo,"PCSX/PCSX-df Teams\n");
-	strcat(CreditsInfo,"Wintermute/Shagkur - devkitPro/libOGC\n");
+	strcat(CreditsInfo,"Extra thanks to:\n");
+	strcat(CreditsInfo,"    drmr - for menu graphics\n");
+	strcat(CreditsInfo,"PCSX/-df/-ReARMed teams\n");
+	strcat(CreditsInfo,"pcercuei - for lightrec/motivation\n");
+	strcat(CreditsInfo,"WinterMute/shagkur - devkitPro/libOGC\n");
 #ifdef HW_RVL
 	strcat(CreditsInfo,"Team Twiizers - for Wii homebrew\n");
 #endif
 
 	menu::MessageBox::getInstance().setMessage(CreditsInfo);
-#endif
-    return;
 }
 
 extern char shutdown;
 
 void Func_ExitToLoader()
 {
-	if(menu::MessageBox::getInstance().askMessage("Are you sure you want to exit?"))
+	if(menu::MessageBox::getInstance().askMessage("Are you sure you want to exit to loader?"))
 		shutdown = 2;
 }
 
@@ -241,21 +205,14 @@ void resumeAudio(void); void resumeInput(void);
 void go(void); 
 }
 
-//void control_info_init();
-
-#include "../libgui/IPLFont.h"
-
 extern char menuActive;
-extern char autoSave;
-extern "C" char mcd1Written;
-extern "C" char mcd2Written;
 extern "C" unsigned int usleep(unsigned int us);
 
 void Func_PlayGame()
 {
 	if(!hasLoadedISO)
 	{
-		menu::MessageBox::getInstance().setMessage("Load an ISO first.");
+		menu::MessageBox::getInstance().setMessage("Please load an ISO first");
 		return;
 	}
 	
@@ -286,123 +243,17 @@ void Func_PlayGame()
 	resumeAudio();
 	resumeInput();
 	menuActive = 0;
-	//VIDEO_SetBlack(false);
 #ifdef DEBUGON
 	_break();
 #endif
+	menu::Gui::getInstance().gfx->setInGameVMode();
 	go();
 #ifdef DEBUGON
 	_break();
-#endif //goooo! dekai shinpai mo asameshimae yabai bawai kiryokubai demotte stand by
+#endif
 	menuActive = 1;
 	pauseInput();
 	pauseAudio();
-
-  if(autoSave==AUTOSAVE_ENABLE) {
-    if(mcd1Written || mcd2Written) {  //something needs saving
-      switch (nativeSaveDevice)
-    	{
-    		case NATIVESAVEDEVICE_SD:
-    		case NATIVESAVEDEVICE_USB:
-    			// Adjust saveFile pointers
-    			saveFile_dir = (nativeSaveDevice==NATIVESAVEDEVICE_SD) ? &saveDir_libfat_Default:&saveDir_libfat_USB;
-    			saveFile_readFile  = fileBrowser_libfat_readFile;
-    			saveFile_writeFile = fileBrowser_libfat_writeFile;
-    			saveFile_init      = fileBrowser_libfat_init;
-    			saveFile_deinit    = fileBrowser_libfat_deinit;
-    			break;
-    		case NATIVESAVEDEVICE_CARDA:
-    		case NATIVESAVEDEVICE_CARDB:
-    			// Adjust saveFile pointers
-    			saveFile_dir       = (nativeSaveDevice==NATIVESAVEDEVICE_CARDA) ? &saveDir_CARD_SlotA:&saveDir_CARD_SlotB;
-    			saveFile_readFile  = fileBrowser_CARD_readFile;
-    			saveFile_writeFile = fileBrowser_CARD_writeFile;
-    			saveFile_init      = fileBrowser_CARD_init;
-    			saveFile_deinit    = fileBrowser_CARD_deinit;
-    			break;
-    	}
-      // Try saving everything
-    	int amountSaves = mcd1Written + mcd2Written;
-    	int result = 0;
-      saveFile_init(saveFile_dir);
-      result += SaveMcd(1,saveFile_dir);
-      result += SaveMcd(2,saveFile_dir);
-      saveFile_deinit(saveFile_dir);
-    	if (result>=amountSaves) {  //saved all of them ok	
-    		switch (nativeSaveDevice)
-    		{
-    			case NATIVESAVEDEVICE_SD:
-    				menu::MessageBox::getInstance().fadeMessage("Automatically saved to SD card");
-    				break;
-    			case NATIVESAVEDEVICE_USB:
-    				menu::MessageBox::getInstance().fadeMessage("Automatically saved to USB device");
-    				break;
-    			case NATIVESAVEDEVICE_CARDA:
-    				menu::MessageBox::getInstance().fadeMessage("Automatically saved to memcard in Slot A");
-    				break;
-    			case NATIVESAVEDEVICE_CARDB:
-    				menu::MessageBox::getInstance().fadeMessage("Automatically saved to memcard in Slot B");
-    				break;
-    		}
-    		mcd1Written = mcd2Written = 0;  //nothing new written since save
-  		}
-  	  else		{
-  	    //menu::MessageBox::getInstance().setMessage("Saved game."); //one or more failed to save
-		;//menu::MessageBox::getInstance().fadeMessage("Saved game.");
-	    }
-      
-    }
-  }
-#if 1
-  //set texels back
-  for (int i = GX_TEXCOORD0; i < GX_MAXCOORD; i++) {
-        GX_SetTexCoordScaleManually(i, GX_FALSE, 1, 1);
-  }
-  //Fixes IPL font
-  Mtx m;
-  guMtxTrans(m, 0., 0., 0.);
-  GX_LoadTexMtxImm(m, GX_DTTIDENTITY, GX_MTX3x4);
-#endif
-  // TEST, works
-  //if(videoFb) {
-  //if(screenMode < SCREENMODE_16x9_PILLARBOX) {
-  
-  //menu always 480i/480p
-  //if(videoMode == VIDEOMODE_DS) {
-    //vmode = VIDEO_GetPreferredMode(0);
-  //}
-  
-  vmode->fbWidth = 640;
-
-    switch (videoWidth) {
-	case VIDEOWIDTH_640:
-		vmode->viWidth   = 640;
-		vmode->viXOrigin = 40; //default
-		break;
-	case VIDEOWIDTH_644:
-		vmode->viWidth   = 644;
-		vmode->viXOrigin = 38;
-		break;
-	case VIDEOWIDTH_720:
-		vmode->viWidth   = 720;
-		vmode->viXOrigin = 0;
-		break;
-	}
-  VIDEO_Configure(vmode);
-  VIDEO_Flush();
-
-  //GX_SetViewport(0,0,vmode->fbWidth,vmode->efbHeight,0,1);
-  GX_SetViewport(1.0f/24.0f,1.0f/24.0f,vmode->fbWidth,vmode->efbHeight,0,1);
-  //GX_SetScissor(0,0,vmode->fbWidth,vmode->efbHeight,0,1);
-  GX_SetDispCopySrc(0,0,vmode->fbWidth,vmode->efbHeight);
-  GX_SetDispCopyDst(vmode->fbWidth,vmode->xfbHeight);
-  GX_InvVtxCache();
-  
-  need_reset = true;
-  //GX_InvalidateTexAll();
-  //}
-  //GX_Flush();
-  VIDEO_WaitVSync();
 
 #ifdef HW_RVL
   resume_netinit_thread();
@@ -419,13 +270,4 @@ void Func_SetPlayGame()
 void Func_SetResumeGame()
 {
 	FRAME_BUTTONS[5].buttonString = FRAME_STRINGS[6];
-}
-
-void MainFrame::Autoboot()
-{
-	Func_SetPlayGame();
-	setDefaultFocus(FRAME_BUTTONS[4].button);
-	FRAME_BUTTONS[0].buttonString = FRAME_STRINGS[6]; // Change text
-	Func_SetResumeGame(); // Switch to Resume Game
-	autoboot_warn = true;
 }
