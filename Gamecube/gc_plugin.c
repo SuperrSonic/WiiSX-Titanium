@@ -724,6 +724,7 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	//Experiment
 	//GX_DrawDone();
 
+#if 0
 	float ymin = 1.0f - (float)((y + height) * 2) / (float)screen_h;
 	float ymax = 1.0f - (float)y / (float)screen_h;
 	float xmin = (float)x / (float)screen_w - 1.0f;
@@ -748,6 +749,24 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	  GX_Position2f32(xmin, ymin);
 	  GX_TexCoord2f32( 0.0, 1.0);
 	GX_End();
+#else
+	float xcoord = 1.0;
+	//float ycoord = 1.0;
+	float ycoord = height*2 > 484 ? height/480.0 : height*2/480.0; //1.009; //1.0084 scanline ends at 1-242
+	if(screenMode == SCREENMODE_16x9_PILLARBOX) xcoord = 640.0/848.0;
+	else if(screenMode == SCREENMODE_16x9) xcoord = 512/640.0;
+
+	GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+	  GX_Position2f32(-xcoord, ycoord);
+	  GX_TexCoord2f32( 0.0, 0.0);
+	  GX_Position2f32( xcoord, ycoord);
+	  GX_TexCoord2f32( width, 0.0);
+	  GX_Position2f32( xcoord,-ycoord);
+	  GX_TexCoord2f32( width, height);
+	  GX_Position2f32(-xcoord,-ycoord);
+	  GX_TexCoord2f32( 0.0, height);
+	GX_End();
+#endif
 
 	// Show lightgun cursors
 	if(usCursorActive) {

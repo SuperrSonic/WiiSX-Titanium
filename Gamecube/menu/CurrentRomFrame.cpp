@@ -169,7 +169,7 @@ void Func_ShowRomInfo()
 	strncat(RomInfo, CdromLabel, x < sizeof(CdromLabel) ? x+1 : sizeof(CdromLabel));
 	sprintf(buffer,"\nCD-ROM ID: %s\n", CdromId);
 	strcat(RomInfo,buffer);
-	sprintf(buffer,"ISO Size: %d Mb\n",isoFile.size/1024/1024);
+	sprintf(buffer,"ISO Size: %d MB\n",isoFile.size/1024/1024);
 	strcat(RomInfo,buffer);
 	sprintf(buffer,"Country: %s\n",(!Config.PsxType) ? "NTSC":"PAL");
 	strcat(RomInfo,buffer);
@@ -240,9 +240,9 @@ if(menu::MessageBox::getInstance().askMessage("Load a Save State?")) {
 #endif
 	PreSaveState();
 	if(LoadState(filename) == 0) {
-		menu::MessageBox::getInstance().setMessage("Save State Loaded Successfully");
+		menu::MessageBox::getInstance().setMessage("Save State Loaded Successfully.");
 	} else {
-		menu::MessageBox::getInstance().setMessage("Save doesn't exist");
+		menu::MessageBox::getInstance().setMessage("Save doesn't exist.");
 	}
 	PostSaveState();
 	free(filename);
@@ -261,9 +261,9 @@ if(menu::MessageBox::getInstance().askMessage("Create a Save State?")) {
 #endif
 	PreSaveState();
 	if(SaveState(filename) == 0) {
-		menu::MessageBox::getInstance().setMessage("Save State Saved Successfully");
+		menu::MessageBox::getInstance().setMessage("Save State Saved Successfully.");
 	} else {
-		menu::MessageBox::getInstance().setMessage("Error Saving State");
+		menu::MessageBox::getInstance().setMessage("Error Saving State.");
 	}
 	PostSaveState();
   	free(filename);

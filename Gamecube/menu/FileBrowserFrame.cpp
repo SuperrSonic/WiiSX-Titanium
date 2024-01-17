@@ -459,7 +459,7 @@ void newCD(fileBrowser_file *file);
 
 void fileBrowserFrame_LoadFile(int i)
 {
-	char feedback_string[256] = "Failed to load ISO";
+	char feedback_string[256] = "Failed to load ISO.";
 	if(dir_entries[i].attr & FILE_BROWSER_ATTR_DIR){
 		// Here we are 'recursing' into a subdirectory
 		// We have to do a little dance here to avoid a dangling pointer
@@ -490,7 +490,7 @@ void fileBrowserFrame_LoadFile(int i)
 			}
 #endif
 			strcpy(feedback_string, "Loaded ");
-			strncat(feedback_string, filenameFromAbsPath(dir_entries[i].name), 36-7);
+			//strncat(feedback_string, filenameFromAbsPath(dir_entries[i].name), 36-7);
 
 			char RomInfo[512] = "";
 			char buffer [128];
@@ -503,7 +503,7 @@ void fileBrowserFrame_LoadFile(int i)
 			strncat(RomInfo, CdromLabel, x < sizeof(CdromLabel) ? x+1 : sizeof(CdromLabel));
 			sprintf(buffer,"\nCD-ROM ID: %s\n", CdromId);
 			strcat(RomInfo,buffer);
-			sprintf(buffer,"ISO Size: %d Mb\n",isoFile.size/1024/1024);
+			sprintf(buffer,"ISO Size: %d MB\n",isoFile.size/1024/1024);
 			strcat(RomInfo,buffer);
 			sprintf(buffer,"Country: %s\n",(!Config.PsxType) ? "NTSC":"PAL");
 			strcat(RomInfo,buffer);
@@ -520,10 +520,10 @@ void fileBrowserFrame_LoadFile(int i)
 			case NATIVESAVEDEVICE_NONE:
 				break;
 			case NATIVESAVEDEVICE_SD:
-				strcat(RomInfo,"\nSave device: SD\n");
+				strcat(RomInfo,"\nSave Device: SD\n");
 				break;
 			case NATIVESAVEDEVICE_USB:
-				strcat(RomInfo,"\nSave device: USB\n");
+				strcat(RomInfo,"\nSave Device: USB\n");
 				break;
 			//case NATIVESAVEDEVICE_CARDA:
 			//	strcat(RomInfo,"\nFound & loaded save from memcard in slot A\n");
