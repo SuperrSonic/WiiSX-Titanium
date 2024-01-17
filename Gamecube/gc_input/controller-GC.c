@@ -288,7 +288,7 @@ controller_t controller_GC =
 	    .SELECT     = &buttons[14], // Start + Z
 	    .analogL    = &analog_sources[0], // Analog Stick
 	    .analogR    = &analog_sources[1], // C stick
-	    .exit       = &menu_combos[1], // Start+X+B
+	    .exit       = &menu_combos[0], // Start+B+X
 	    .invertedYL = 0,
 	    .invertedYR = 0,
 	  }

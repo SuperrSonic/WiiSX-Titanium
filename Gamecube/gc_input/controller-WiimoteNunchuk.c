@@ -378,7 +378,7 @@ controller_t controller_Wiimote =
 	    .SELECT     = &buttons[0],  // None
 	    .analogL    = &analog_sources_wm[0], // Tilt
 	    .analogR    = &analog_sources_wm[3], // None
-	    .exit       = &menu_combos[1], // +&-
+	    .exit       = &menu_combos[0], // +&-
 	    .invertedYL = 0,
 	    .invertedYR = 0,
 	  }

@@ -724,7 +724,7 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	//Experiment
 	//GX_DrawDone();
 
-#if 0
+#if 1
 	float ymin = 1.0f - (float)((y + height) * 2) / (float)screen_h;
 	float ymax = 1.0f - (float)y / (float)screen_h;
 	
