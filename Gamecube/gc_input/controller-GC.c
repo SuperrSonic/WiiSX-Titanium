@@ -85,7 +85,7 @@ static button_t menu_combos[] = {
 
 u32 gc_connected;
 
-static unsigned int getButtons(int Control)
+static unsigned int getButtons(int Control, int type)
 {
 	unsigned int b = PAD_ButtonsHeld(Control);
 	s8 stickX      = PAD_StickX(Control);
@@ -93,15 +93,22 @@ static unsigned int getButtons(int Control)
 	s8 substickX   = PAD_SubStickX(Control);
 	s8 substickY   = PAD_SubStickY(Control);
 	
-	if(stickX    < -48) b |= ANALOG_L;
-	if(stickX    >  48) b |= ANALOG_R;
-	if(stickY    >  48) b |= ANALOG_U;
-	if(stickY    < -48) b |= ANALOG_D;
+	if(type == 0) {
+		if(stickX    < -38) b |= ANALOG_L;
+		if(stickX    >  38) b |= ANALOG_R;
+		if(stickY    >  38) b |= ANALOG_U;
+		if(stickY    < -38) b |= ANALOG_D;
+	} else {
+		if(stickX    < -38) b |= PAD_BUTTON_LEFT;
+		if(stickX    >  38) b |= PAD_BUTTON_RIGHT;
+		if(stickY    >  38) b |= PAD_BUTTON_UP;
+		if(stickY    < -38) b |= PAD_BUTTON_DOWN;
+	}
 	
-	if(substickX < -48) b |= C_STICK_L;
-	if(substickX >  48) b |= C_STICK_R;
-	if(substickY >  48) b |= C_STICK_U;
-	if(substickY < -48) b |= C_STICK_D;
+	if(substickX < -38) b |= C_STICK_L;
+	if(substickX >  38) b |= C_STICK_R;
+	if(substickY >  38) b |= C_STICK_U;
+	if(substickY <  38) b |= C_STICK_D;
 	
 	if(!(b & PAD_TRIGGER_Z)) b |= PAD_TRIGGER_Z_UP;
 
@@ -161,7 +168,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config, in
 	controller_GC.available[Control] = (gc_connected & (1<<Control)) ? 1 : 0;
 	if (!controller_GC.available[Control]) return 0;
 
-	unsigned int b = psxType == PSE_PAD_TYPE_ANALOGPAD ? getButtons(Control) : getButtonsEmu(Control);
+	unsigned int b = getButtons(Control, psxType);
 	inline int isHeld(button_tp button){
 		return (b & button->mask) == button->mask ? 0 : 1;
 	}
