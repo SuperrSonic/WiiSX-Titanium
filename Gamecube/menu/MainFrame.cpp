@@ -319,7 +319,7 @@ void Func_PlayGame()
 		vmode->viWidth   = 644;
 		vmode->viXOrigin = 38;
 		break;
-	case VIDEOWIDTH_720:
+	case VIDEOWIDTH_704:
 		vmode->viWidth   = 704;
 		vmode->viXOrigin = 8;
 		break;
