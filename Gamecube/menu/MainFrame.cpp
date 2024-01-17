@@ -56,18 +56,22 @@ void Func_Credits();
 void Func_ExitToLoader();
 void Func_PlayGame();
 
-#define NUM_MAIN_BUTTONS 6
+bool autoboot_warn = false;
+bool need_reset = false;
+extern GXRModeObj *vmode;
+
+#define NUM_MAIN_BUTTONS 5
 #define FRAME_BUTTONS mainFrameButtons
 #define FRAME_STRINGS mainFrameStrings
 
 static const char FRAME_STRINGS[7][20] =
-	{ "Load ISO",
-	  "Current ISO",
+	{ "Load Game",
+	  "Game Data",
 	  "Settings",
-	  "Credits",
-	  "Quit",
+	  "Exit",
 	  "Play Game",
-	  "Resume Game"};
+	  "Resume Game",
+	  "Reset"};
 
 
 struct ButtonInfo
@@ -87,12 +91,11 @@ struct ButtonInfo
 	ButtonFunc		returnFunc;
 } FRAME_BUTTONS[NUM_MAIN_BUTTONS] =
 { //	button	buttonStyle	buttonString		x		y		width	height	Up	Dwn	Lft	Rt	clickFunc				returnFunc
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[0],	315.0,	 60.0,	200.0,	56.0,	 5,	 1,	-1,	-1,	Func_LoadROM,			NULL }, // Load ROM
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[1],	315.0,	120.0,	200.0,	56.0,	 0,	 2,	-1,	-1,	Func_CurrentROM,		NULL }, // Current ROM
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[2],	315.0,	180.0,	200.0,	56.0,	 1,	 3,	-1,	-1,	Func_Settings,			NULL }, // Settings
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[3],	315.0,	240.0,	200.0,	56.0,	 2,	 4,	-1,	-1,	Func_Credits,			NULL }, // Credits
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[4],	315.0,	300.0,	200.0,	56.0,	 3,	 5,	-1,	-1,	Func_ExitToLoader,		NULL }, // Exit to Loader
-	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[5],	315.0,	360.0,	200.0,	56.0,	 4,	 0,	-1,	-1,	Func_PlayGame,			NULL }, // Play/Resume Game
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[0],	315.0,	autoboot_warn ? 500.0 : 60.0,	200.0,	56.0,	 5,	 1,	-1,	-1,	Func_LoadROM,			NULL }, // Load ROM
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[1],	315.0,	autoboot_warn ? 60.0 : 120.0,	200.0,	56.0,	 0,	 2,	-1,	-1,	Func_CurrentROM,		NULL }, // Current ROM
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[2],	315.0,	autoboot_warn ? 120.0 : 180.0,	200.0,	56.0,	 1,	 3,	-1,	-1,	Func_Settings,			NULL }, // Settings
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[3],	315.0,	autoboot_warn ? 180.0 : 240.0,	200.0,	56.0,	 2,	 4,	-1,	-1,	Func_ExitToLoader,		NULL }, // Exit to Loader
+	{	NULL,	BTN_A_NRM,	FRAME_STRINGS[4],	315.0,	autoboot_warn ? 240.0 : 300.0,	200.0,	56.0,	 3,	 5,	-1,	-1,	Func_PlayGame,			NULL }, // Play/Resume Game
 };
 
 MainFrame::MainFrame()
@@ -107,8 +110,13 @@ MainFrame::MainFrame()
 
 	for (int i = 0; i < NUM_MAIN_BUTTONS; i++)
 	{
-		if (FRAME_BUTTONS[i].focusUp != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[i].focusUp].button);
-		if (FRAME_BUTTONS[i].focusDown != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_DOWN, FRAME_BUTTONS[FRAME_BUTTONS[i].focusDown].button);
+		/* The "get it done" way */
+		if (autoboot_warn && i != 1)
+		   if (FRAME_BUTTONS[i].focusUp != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[i].focusUp].button);
+		if (!autoboot_warn && i != 0)
+		   if (FRAME_BUTTONS[i].focusUp != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[i].focusUp].button);
+		if (i != 4)
+		   if (FRAME_BUTTONS[i].focusDown != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_DOWN, FRAME_BUTTONS[FRAME_BUTTONS[i].focusDown].button);
 		if (FRAME_BUTTONS[i].focusLeft != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_LEFT, FRAME_BUTTONS[FRAME_BUTTONS[i].focusLeft].button);
 		if (FRAME_BUTTONS[i].focusRight != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_RIGHT, FRAME_BUTTONS[FRAME_BUTTONS[i].focusRight].button);
 		FRAME_BUTTONS[i].button->setActive(true);
@@ -119,7 +127,7 @@ MainFrame::MainFrame()
 												FRAME_BUTTONS[i].x+FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].y, 
 												FRAME_BUTTONS[i].y+FRAME_BUTTONS[i].height);
 	}
-	setDefaultFocus(FRAME_BUTTONS[0].button);
+	setDefaultFocus(FRAME_BUTTONS[autoboot_warn ? 1 : 0].button);
 	setEnabled(true);
 
 }
@@ -136,8 +144,29 @@ MainFrame::~MainFrame()
 
 extern MenuContext *pMenuContext;
 
+extern "C" {
+void SysReset();
+void SysInit();
+void SysClose();
+void CheckCdrom();
+void LoadCdrom();
+}
+
 void Func_LoadROM()
 {
+	if(autoboot_warn)
+	{
+		// Shortcut for Reset
+		if(menu::MessageBox::getInstance().askMessage("Are you sure?")) {
+			SysClose();
+			SysInit ();
+			CheckCdrom();
+  			SysReset();
+			LoadCdrom();
+			menu::MessageBox::getInstance().setMessage("Game has been reset.");
+		}
+		return;
+	}
 	pMenuContext->setActiveFrame(MenuContext::FRAME_LOADROM,FileBrowserFrame::FILEBROWSER_LOADISO);
 }
 
@@ -162,6 +191,7 @@ void Func_Settings()
 
 void Func_Credits()
 {
+#if 0
 	char CreditsInfo[512] = "";
 #ifdef HW_RVL
 	int iosversion = IOS_GetVersion();
@@ -183,13 +213,14 @@ void Func_Credits()
 #endif
 
 	menu::MessageBox::getInstance().setMessage(CreditsInfo);
+#endif
 }
 
 extern char shutdown;
 
 void Func_ExitToLoader()
 {
-	if(menu::MessageBox::getInstance().askMessage("Are you sure you want to exit to loader?"))
+	if(menu::MessageBox::getInstance().askMessage("Are you sure you want to exit?"))
 		shutdown = 2;
 }
 
@@ -205,6 +236,8 @@ void resumeAudio(void); void resumeInput(void);
 void go(void); 
 }
 
+#include "../libgui/IPLFont.h"
+
 extern char menuActive;
 extern "C" unsigned int usleep(unsigned int us);
 
@@ -212,7 +245,7 @@ void Func_PlayGame()
 {
 	if(!hasLoadedISO)
 	{
-		menu::MessageBox::getInstance().setMessage("Please load an ISO first");
+		menu::MessageBox::getInstance().setMessage("Load a game first.");
 		return;
 	}
 	
@@ -255,6 +288,62 @@ void Func_PlayGame()
 	pauseInput();
 	pauseAudio();
 
+//area scaler
+#if 1
+  //set texels back
+  for (int i = GX_TEXCOORD0; i < GX_MAXCOORD; i++) {
+        GX_SetTexCoordScaleManually(i, GX_FALSE, 1, 1);
+  }
+  //Fixes IPL font
+  Mtx m;
+  guMtxTrans(m, 0., 0., 0.);
+  GX_LoadTexMtxImm(m, GX_DTTIDENTITY, GX_MTX3x4);
+#endif
+  // TEST, works
+  //if(videoFb) {
+  //if(screenMode < SCREENMODE_16x9_PILLARBOX) {
+
+  //menu always 480i/480p
+  //if(videoMode == VIDEOMODE_DS) {
+    //vmode = VIDEO_GetPreferredMode(0);
+  //}
+
+  vmode->fbWidth = 640;
+
+    switch (videoWidth) {
+	case VIDEOWIDTH_640:
+		vmode->viWidth   = 640;
+		vmode->viXOrigin = 40; //default
+		break;
+	case VIDEOWIDTH_644:
+		vmode->viWidth   = 644;
+		vmode->viXOrigin = 38;
+		break;
+	case VIDEOWIDTH_720:
+		vmode->viWidth   = 704;
+		vmode->viXOrigin = 8;
+		break;
+	case VIDEOWIDTH_720:
+		vmode->viWidth   = 720;
+		vmode->viXOrigin = 0;
+		break;
+	}
+  VIDEO_Configure(vmode);
+  VIDEO_Flush();
+
+  //GX_SetViewport(0,0,vmode->fbWidth,vmode->efbHeight,0,1);
+  GX_SetViewport(1.0f/24.0f,1.0f/24.0f,vmode->fbWidth,vmode->efbHeight,0,1);
+  //GX_SetScissor(0,0,vmode->fbWidth,vmode->efbHeight,0,1);
+  GX_SetDispCopySrc(0,0,vmode->fbWidth,vmode->efbHeight);
+  GX_SetDispCopyDst(vmode->fbWidth,vmode->xfbHeight);
+  GX_InvVtxCache();
+
+  need_reset = true;
+  //GX_InvalidateTexAll();
+  //}
+  //GX_Flush();
+  VIDEO_WaitVSync();
+
 #ifdef HW_RVL
   resume_netinit_thread();
 #endif
@@ -270,4 +359,13 @@ void Func_SetPlayGame()
 void Func_SetResumeGame()
 {
 	FRAME_BUTTONS[5].buttonString = FRAME_STRINGS[6];
+}
+
+void MainFrame::Autoboot()
+{
+	Func_SetPlayGame();
+	setDefaultFocus(FRAME_BUTTONS[4].button);
+	FRAME_BUTTONS[0].buttonString = FRAME_STRINGS[6]; // Change text
+	Func_SetResumeGame(); // Switch to Resume Game
+	autoboot_warn = true;
 }

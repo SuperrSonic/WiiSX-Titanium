@@ -380,6 +380,9 @@ extern u32* xfb[3];	/*** Framebuffers ***/
 extern char text[DEBUG_TEXT_HEIGHT][DEBUG_TEXT_WIDTH]; /*** DEBUG textbuffer ***/
 extern char menuActive;
 extern char screenMode;
+extern GXRModeObj *vmode;
+extern bool need_reset;
+bool expand_width = false;
 static char fpsInfo[32];
 // Lightgun vars
 static unsigned long crCursorColor32[8][3]={{0xff,0x00,0x00},{0x00,0xff,0x00},{0x00,0x00,0xff},{0xff,0x00,0xff},{0xff,0xff,0x00},{0x00,0xff,0xff},{0xff,0xff,0xff},{0x7f,0x7f,0x7f}};
@@ -392,6 +395,125 @@ enum {
 	FB_NEXT,
 	FB_FRONT,
 };
+
+bool firstFrame = true;
+
+//indirect texture matrix for sharp bilinear
+static float indtexmtx[2][3] = {
+    { +.5, +.0, +.0 },
+    { +.0, +.5, +.0 }
+};
+
+//indirect texture
+static uint16_t indtexdata[][4 * 4] ATTRIBUTE_ALIGN(32) = {
+    {
+        0xE0E0, 0xA0E0, 0x60E0, 0x20E0,
+        0xE0A0, 0xA0A0, 0x60A0, 0x20A0,
+        0xE060, 0xA060, 0x6060, 0x2060,
+        0xE020, 0xA020, 0x6020, 0x2020,
+    }, {
+        0xC0C0, 0x40C0, 0xC0C0, 0x40C0,
+        0xC040, 0x4040, 0xC040, 0x4040,
+        0xC0C0, 0x40C0, 0xC0C0, 0x40C0,
+        0xC040, 0x4040, 0xC040, 0x4040,
+    }, {
+        0x8080, 0x8080, 0x8080, 0x8080,
+        0x8080, 0x8080, 0x8080, 0x8080,
+        0x8080, 0x8080, 0x8080, 0x8080,
+        0x8080, 0x8080, 0x8080, 0x8080,
+    }
+};
+
+static GXTexObj indtexobj;
+
+void TexelFix(void)
+{
+    //texel center fix
+    Mtx m;
+    for (int i = GX_TEXCOORD0; i < GX_MAXCOORD; i++) {
+        GX_SetTexCoordScaleManually(i, GX_TRUE, 1, 1);
+    }
+
+    for (int i = 0; i < 10; i++) {
+        float s = 1 << (i + 1);
+
+        guMtxScale(m, s, s, s);
+        GX_LoadTexMtxImm(m, GX_TEXMTX0 + i * 3, GX_MTX3x4);
+    }
+
+    guMtxTrans(m, 1. / 64., 1. / 64., 0);
+    GX_LoadTexMtxImm(m, GX_DTTIDENTITY, GX_MTX3x4);
+
+    for (int i = 0; i < 9; i++) {
+        float x = i % 3 - 1;
+        float y = i / 3 - 1;
+
+        if (i % 2 == 0) {
+            x /= 2;
+            y /= 2;
+        }
+
+        x += 1. / 64.;
+        y += 1. / 64.;
+
+        guMtxTrans(m, x, y, 0);
+        GX_LoadTexMtxImm(m, GX_DTTMTX1 + i * 3, GX_MTX3x4);
+    }
+}
+
+void update_filter(void)
+{
+    //Sharp Bilinear filtering for Widescreen
+    //if (CONF_GetAspectRatio() == CONF_ASPECT_16_9) {
+    if (videoLinear == 2) {
+    //if (videoLinear > 1) {
+        GX_InitTexObj(&indtexobj, indtexdata, 4, 4, GX_TF_IA8, GX_REPEAT, GX_REPEAT, GX_TRUE);
+        GX_InitTexObjLOD(&indtexobj, GX_LIN_MIP_LIN, GX_LINEAR, 0., 2., -1. / 3., GX_FALSE, GX_TRUE, GX_ANISO_4);
+        GX_LoadTexObj(&indtexobj, GX_TEXMAP1);
+
+        GX_SetBlendMode(GX_BM_NONE, GX_BL_ZERO, GX_BL_ZERO, GX_LO_CLEAR);
+        GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
+        GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
+        GX_SetZCompLoc(GX_FALSE);
+
+        GX_SetNumChans(0);
+        GX_SetNumTexGens(2);
+        GX_SetNumIndStages(1);
+        GX_SetNumTevStages(1);
+
+        GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+        GX_SetTexCoordGen(GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX0, GX_TEXMTX1);
+
+        GX_SetIndTexOrder(GX_INDTEXSTAGE0, GX_TEXCOORD1, GX_TEXMAP1);
+        GX_SetIndTexMatrix(GX_ITM_0, indtexmtx, -7);
+
+        GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
+        GX_SetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K3_R);
+        GX_SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ONE, GX_CC_TEXC, GX_CC_ZERO);
+        GX_SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+        GX_SetTevIndirect(GX_TEVSTAGE0, GX_INDTEXSTAGE0, GX_ITF_8, GX_ITB_STU, GX_ITM_0, GX_ITW_OFF, GX_ITW_OFF, GX_FALSE, GX_FALSE, GX_ITBA_OFF);
+    }
+    //Nearest filtering
+    else {
+        GX_SetBlendMode(GX_BM_NONE, GX_BL_ZERO, GX_BL_ZERO, GX_LO_CLEAR);
+        GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
+        GX_SetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
+        GX_SetZCompLoc(GX_FALSE);
+
+        GX_SetNumChans(0);
+        GX_SetNumTexGens(1);
+        GX_SetNumIndStages(0);
+        GX_SetNumTevStages(1);
+
+        GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+
+        GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);
+        GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
+    }
+
+    //GX_SetArray(GX_VA_POS, square, 3 * sizeof(s16));
+	GX_Flush();
+}
 
 static void gc_vout_vsync(unsigned int)
 {
@@ -445,15 +567,27 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 
 	if((width == 0) || (height == 0))
 		return;
+	
+	if(firstFrame)
+		TexelFix();
 
+	if(need_reset) {
+		need_reset = false;
+		TexelFix();
+	}
 
 	if ((oldwidth != width) || (oldheight != height) || (oldformat != fmt))
 	{ //adjust texture conversion
 		oldwidth = width;
 		oldheight = height;
 		oldformat = fmt;
+		
+		u8 scaler;
+		scaler = videoLinear ? GX_LINEAR : GX_NEAR; //this allows bigger than 1 to use GX_LINEAR
+		
 		memset(GXtexture,0,sizeof(GXtexture));
 		GX_InitTexObj(&GXtexobj, GXtexture, width, height, fmt, GX_CLAMP, GX_CLAMP, GX_FALSE);
+		GX_InitTexObjFilterMode(&GXtexobj, scaler, scaler);
 	}
 
 	if(fmt==GX_TF_RGBA8) {
@@ -570,8 +704,9 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	GX_SetZMode(GX_ENABLE,GX_ALWAYS,GX_TRUE);
 
 	GX_InvalidateTexAll();
-	GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);
-	GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
+	//GX_SetTevOp(GX_TEVSTAGE0, GX_REPLACE);
+	//GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLORNULL);
+	update_filter();
 
 
 	GX_ClearVtxDesc();
@@ -583,8 +718,11 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XY, GX_F32, 0);
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
 
-	GX_SetNumTexGens(1);
-	GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+	//GX_SetNumTexGens(1);
+	//GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+	
+	//Experiment
+	//GX_DrawDone();
 
 	float ymin = 1.0f - (float)((y + height) * 2) / (float)screen_h;
 	float ymax = 1.0f - (float)y / (float)screen_h;
@@ -594,6 +732,10 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	if(screenMode == SCREENMODE_16x9_PILLARBOX) {
 		xmin *= 640.0f / 848.0f;
 		xmax *= 640.0f / 848.0f;
+	}
+	else if(screenMode == SCREENMODE_16x9) {
+		xmin *= 512.0f / 640.0f;
+		xmax *= 512.0f / 640.0f;
 	}
 
 	GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
@@ -663,6 +805,11 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 		IplFont_drawString(10,(10*i+60),text[i], 0.5, false);
 
 	gc_vout_render();
+	
+	if(firstFrame) {
+		firstFrame = false;
+		VIDEO_SetBlack(false);
+	}
 }
 
 static int gc_vout_open(void) { 

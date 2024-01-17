@@ -384,13 +384,13 @@ LabelResources RES_LBL[LABEL_GROUPS_END] =
 	{LBL_GENERAL_BIOS, "Select BIOS"},
 	{LBL_GENERAL_BOOT_BIOS, "Boot Through BIOS"},
 	{LBL_GENERAL_EXEC_BIOS, "Execute BIOS"},
-	{LBL_GENERAL_SAVE, "Save settings.cfg"},
+	{LBL_GENERAL_SAVE, "Save Settings"},
 	// Video
 	{LBL_VIDEO_FPS_SHOW, "Show FPS"},
 	{LBL_VIDEO_FPS_LIMIT, "Limit FPS"},
 	{LBL_VIDEO_FRAMESKIP, "Frame Skip"},
 	{LBL_VIDEO_SCREENMODE, "Screen Mode"},
-	{LBL_VIDEO_DITHER, "Dithering"},
+	{LBL_VIDEO_DITHER, "Dither"},
 	{LBL_VIDEO_DEFLICKER, "Deflicker"},
 	// Input
 	{LBL_INPUT_CONF_INPUT, "Configure Input"},

@@ -30,7 +30,7 @@ class MainFrame : public menu::Frame
 public:
 	MainFrame();
 	~MainFrame();
-
+	void Autoboot();
 private:
 	menu::InputStatusBar *inputStatusBar;
 };

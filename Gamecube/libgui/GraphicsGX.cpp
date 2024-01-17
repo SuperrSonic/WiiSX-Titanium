@@ -22,6 +22,8 @@
 #include "GraphicsGX.h"
 #include "../wiiSXconfig.h"
 
+extern bool Autoboot;
+
 extern "C" unsigned int usleep(unsigned int us);
 void video_mode_init(GXRModeObj *rmode, u32 *fb1, u32 *fb2, u32 *fb3);
 
@@ -44,6 +46,15 @@ Graphics::Graphics(GXRModeObj *rmode)
 	CONF_Init();
 #endif
 	VIDEO_Init();
+	
+	VIDEO_SetBlack(GX_TRUE);
+
+	//check pal
+	bool isPAL = false;
+	vmode = VIDEO_GetPreferredMode(&vmode_phys);
+	if (vmode == &TVPal576IntDfScale || vmode == &TVPal576ProgScale)
+		isPAL = true;
+	
 	switch (videoMode)
 	{
 	case VIDEOMODE_AUTO:
@@ -67,8 +78,33 @@ Graphics::Graphics(GXRModeObj *rmode)
 		memcpy( &vmode_phys, vmode, sizeof(GXRModeObj));
 		break;
 	case VIDEOMODE_PROGRESSIVE:
-		vmode = &TVNtsc480Prog;
+		vmode = isPAL ? &TVEurgb60Hz480Prog : &TVNtsc480Prog;
 		memcpy( &vmode_phys, vmode, sizeof(GXRModeObj));
+		break;
+	case VIDEOMODE_DS:
+		is240p = 1;
+		vmode = isPAL ? &TVEurgb60Hz240DsAa : &TVNtsc240DsAa;
+		memcpy( &vmode_phys, vmode, sizeof(GXRModeObj));
+		break;
+	}
+
+	switch (videoWidth)
+	{
+	case VIDEOWIDTH_640:
+		vmode->viWidth   = 640;
+		//vmode->viXOrigin = 40; //default
+		break;
+	case VIDEOWIDTH_644:
+		vmode->viWidth   = 644;
+		vmode->viXOrigin = 38;
+		break;
+	case VIDEOWIDTH_704:
+		vmode->viWidth   = 704;
+		vmode->viXOrigin = 8;
+		break;
+	case VIDEOWIDTH_720:
+		vmode->viWidth   = 720;
+		vmode->viXOrigin = 0;
 		break;
 	}
 
@@ -124,7 +160,7 @@ void Graphics::init()
 	GX_SetFieldMode(vmode->field_rendering,((vmode->viHeight==2*vmode->xfbHeight)?GX_ENABLE:GX_DISABLE));
  
 	if (vmode->aa)
-		GX_SetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_LINEAR);
+		GX_SetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_LINEAR); //try GX_ZC_MID
     else
 		GX_SetPixelFmt(GX_PF_RGB8_Z24, GX_ZC_LINEAR);
 
@@ -206,7 +242,8 @@ void Graphics::swapBuffers()
 	VIDEO_SetNextFramebuffer(xfb[which_fb]);
 	if(first_frame) {
 		first_frame = false;
-		VIDEO_SetBlack(GX_FALSE);
+		if(!Autoboot)
+			VIDEO_SetBlack(GX_FALSE);
 	}
 	VIDEO_Flush();
  	VIDEO_WaitVSync();
@@ -424,17 +461,33 @@ void Graphics::enableScissor(int x, int y, int width, int height)
 {
 	if(screenMode)
 	{
+		int x1 = (x+104)*vmode->fbWidth/848;
+		int x2 = (x+width+104)*vmode->fbWidth/848;
+		GX_SetScissor((u32) x1,(u32) y*vmode->efbHeight/480,(u32) x2-x1,(u32) height*vmode->efbHeight/480);
+	}
+	else {
+		GX_SetScissor((u32) (vmode->fbWidth==512)?(x-104):x,(u32) y*vmode->efbHeight/480,
+			(u32) (vmode->fbWidth==512)?(width+848):width,(u32) height*vmode->efbHeight/480);
+	}
+
+#if 0
+
+	if(screenMode)
+	{
 		int x1 = (x+104)*640/848;
 		int x2 = (x+width+104)*640/848;
 		GX_SetScissor((u32) x1,(u32) y,(u32) x2-x1,(u32) height);
 	}
 	else
 		GX_SetScissor((u32) x,(u32) y,(u32) width,(u32) height);
+#endif
 }
 
 void Graphics::disableScissor()
 {
-	GX_SetScissor((u32) 0,(u32) 0,(u32) viewportWidth,(u32) viewportHeight); //Set to the same size as the viewport.
+	GX_SetScissor((u32) 0,(u32) 0,(u32) vmode->fbWidth,(u32) vmode->efbHeight);
+
+	//GX_SetScissor((u32) 0,(u32) 0,(u32) viewportWidth,(u32) viewportHeight); //Set to the same size as the viewport.
 }
 
 void Graphics::enableBlending(bool blend)
@@ -504,8 +557,17 @@ float Graphics::getCurrentTransparency(int index)
 }
 
 void Graphics::setInGameVMode() {
+	if(vmode->efbHeight < 300)
+		return;
+
 	// Set deflicker
-	GX_SetCopyFilter(vmode->aa,vmode->sample_pattern,deflicker ? GX_TRUE : GX_FALSE,vmode->vfilter);
+	u8 vfilter_res[7] = {8, 8, 10, 12, 10, 8, 8};
+	//u8 vfilter_dim[7] = {0, 0, 21, 0, 21, 0, 0};
+	GX_SetCopyFilter(vmode->aa,vmode->sample_pattern,deflicker ? GX_TRUE : GX_FALSE,vfilter_res);
+	GX_Flush;
+	
+	VIDEO_Configure(vmode);
+	VIDEO_Flush();
 	
 	// TODO: eventually change video mode for sync here too
 }

@@ -78,8 +78,9 @@ static button_t analog_sources[] = {
 };
 
 static button_t menu_combos[] = {
-	{ 0, PAD_BUTTON_X|PAD_BUTTON_Y, "X+Y" },
-	{ 1, PAD_BUTTON_START|PAD_BUTTON_X, "Start+X" },
+//	{ 0, PAD_BUTTON_X|PAD_BUTTON_Y, "X+Y" },
+//	{ 1, PAD_BUTTON_START|PAD_BUTTON_X, "Start+X" },
+	{ 0, PAD_BUTTON_START|PAD_BUTTON_X|PAD_BUTTON_B, "Start+B+X" },
 };
 
 u32 gc_connected;
@@ -101,6 +102,29 @@ static unsigned int getButtons(int Control)
 	if(substickX >  48) b |= C_STICK_R;
 	if(substickY >  48) b |= C_STICK_U;
 	if(substickY < -48) b |= C_STICK_D;
+	
+	if(!(b & PAD_TRIGGER_Z)) b |= PAD_TRIGGER_Z_UP;
+
+	return b;
+}
+
+static unsigned int getButtonsEmu(int Control)
+{
+	unsigned int b = PAD_ButtonsHeld(Control);
+	s8 stickX      = PAD_StickX(Control);
+	s8 stickY      = PAD_StickY(Control);
+	s8 substickX   = PAD_SubStickX(Control);
+	s8 substickY   = PAD_SubStickY(Control);
+	
+	if(stickX    < -38) b |= PAD_BUTTON_LEFT;
+	if(stickX    >  38) b |= PAD_BUTTON_RIGHT;
+	if(stickY    >  38) b |= PAD_BUTTON_UP;
+	if(stickY    < -38) b |= PAD_BUTTON_DOWN;
+
+	if(substickX < -38) b |= C_STICK_L;
+	if(substickX >  38) b |= C_STICK_R;
+	if(substickY >  38) b |= C_STICK_U;
+	if(substickY < -38) b |= C_STICK_D;
 	
 	if(!(b & PAD_TRIGGER_Z)) b |= PAD_TRIGGER_Z_UP;
 
@@ -137,7 +161,7 @@ static int _GetKeys(int Control, BUTTONS * Keys, controller_config_t* config, in
 	controller_GC.available[Control] = (gc_connected & (1<<Control)) ? 1 : 0;
 	if (!controller_GC.available[Control]) return 0;
 
-	unsigned int b = getButtons(Control);
+	unsigned int b = psxType == PSE_PAD_TYPE_ANALOGPAD ? getButtons(Control) : getButtonsEmu(Control);
 	inline int isHeld(button_tp button){
 		return (b & button->mask) == button->mask ? 0 : 1;
 	}
@@ -257,7 +281,7 @@ controller_t controller_GC =
 	    .SELECT     = &buttons[14], // Start + Z
 	    .analogL    = &analog_sources[0], // Analog Stick
 	    .analogR    = &analog_sources[1], // C stick
-	    .exit       = &menu_combos[1], // Start+X
+	    .exit       = &menu_combos[1], // Start+X+B
 	    .invertedYL = 0,
 	    .invertedYR = 0,
 	  }

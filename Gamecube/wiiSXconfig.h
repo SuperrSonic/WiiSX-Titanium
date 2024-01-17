@@ -163,7 +163,32 @@ enum videoMode
 	VIDEOMODE_AUTO=0,
 	VIDEOMODE_NTSC,
 	VIDEOMODE_PAL,
-	VIDEOMODE_PROGRESSIVE
+	VIDEOMODE_PROGRESSIVE,
+	VIDEOMODE_DS
+};
+
+extern char videoWidth;
+enum videoWidth
+{
+	VIDEOWIDTH_640=0,
+	VIDEOWIDTH_644,
+	VIDEOWIDTH_704,
+	VIDEOWIDTH_720
+};
+
+extern char videoFb; //unused now
+enum videoFb
+{
+	VIDEOFB_512=0, //if the video is 256 or 512, integer scale it, so it's even sharper
+	VIDEOFB_640
+};
+
+extern char videoLinear;
+enum videoLinear
+{
+	LINEAR_OFF=0,
+	LINEAR_ON,
+	LINEAR_2x
 };
 
 extern char fileSortMode;

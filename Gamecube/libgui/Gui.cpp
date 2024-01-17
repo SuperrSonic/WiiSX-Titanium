@@ -32,8 +32,90 @@ extern "C" {
 #ifdef WII
 #include <di/di.h>
 #include <ogc/machine/processor.h>
-#endif 
+
+#include <stdio.h>
+#include <string.h>
+#include <ogcsys.h>
+#include <malloc.h>
+
+#define ALIGN32(x) (((x) + 31) & ~31)
+#define SECONDS_TO_2000 946684800LL
+#define TICKS_PER_SECOND 60750000LL
+
+//! Should be 32 byte aligned
+static const char PLAYRECPATH[] ATTRIBUTE_ALIGN(32) = "/title/00000001/00000002/data/play_rec.dat";
+
+typedef struct _PlayRec
+{
+	u32 checksum;
+	union
+	{
+		u32 data[31];
+		struct
+		{
+			u16 name[42];
+			u64 ticks_boot;
+			u64 ticks_last;
+			char title_id[6];
+			char unknown[18];
+		} ATTRIBUTE_PACKED;
+	};
+} PlayRec;
+
+static u64 getWiiTime(void)
+{
+	time_t uTime = time(NULL);
+	return TICKS_PER_SECOND * (uTime - SECONDS_TO_2000);
 }
+
+int Playlog_Exit(void)
+{
+	s32 res = -1;
+	u32 sum = 0;
+	u8 i;
+
+	//Open play_rec.dat
+	s32 fd = IOS_Open(PLAYRECPATH, IPC_OPEN_RW);
+	if(fd < 0)
+		return fd;
+
+	PlayRec * playrec_buf = memalign(32, ALIGN32(sizeof(PlayRec)));
+	if(!playrec_buf)
+		goto cleanup;
+
+	//Read play_rec.dat
+	if(IOS_Read(fd, playrec_buf, sizeof(PlayRec)) != sizeof(PlayRec))
+		goto cleanup;
+
+	if(IOS_Seek(fd, 0, 0) < 0)
+		goto cleanup;
+
+	// update exit time
+	u64 stime = getWiiTime();
+	playrec_buf->ticks_last = stime;
+
+	//Calculate and update checksum
+	for(i = 0; i < 31; i++)
+		sum += playrec_buf->data[i];
+
+	playrec_buf->checksum = sum;
+
+	if(IOS_Write(fd, playrec_buf, sizeof(PlayRec)) != sizeof(PlayRec))
+		goto cleanup;
+
+	res = 0;
+
+cleanup:
+	free(playrec_buf);
+	IOS_Close(fd);
+	return res;
+}
+#endif
+}
+
+
+
+extern bool Autoboot;
 
 extern char shutdown;
 #ifdef WII
@@ -124,6 +206,10 @@ void Gui::draw()
 		{
 			VIDEO_SetBlack(true);
 			VIDEO_Flush();
+			//Update message board time
+			if(Autoboot)
+			//if(writePlaylog)
+				Playlog_Exit();
 		 	VIDEO_WaitVSync();
 #ifdef WII
 			// If this is a Wii U, restore the original aspect ratio
@@ -150,19 +236,16 @@ void Gui::draw()
 					*(volatile unsigned int*)0xCC003024 = 0;  //reboot
 			  }
 #else
-				#define HBC_STUB 0x53545542
-				#define HBC_HAXX 0x48415858
-				//Load HBC Stub if STUBAXX signature is present
-				if(*(volatile unsigned int*)0x80001804 == HBC_STUB &&
-					*(volatile unsigned int*)0x80001808 == HBC_HAXX)
+				if(*(volatile unsigned int*)0x80001804 == 0x53545542 &&
+					*(volatile unsigned int*)0x80001808 == 0x48415858)
 					rld();
-				else // Wii channel support
-					SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0); // Return to the Wii System Menu
+				else
+					SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
 #endif
 			}
 		}
 
-		char increment = 3;
+		char increment = 8;
 		fade = fade +increment > 255 ? 255 : fade + increment;
 	}
 

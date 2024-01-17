@@ -29,6 +29,8 @@
 
 #include <libpcsxcore/psxcommon.h>
 
+extern bool Autoboot;
+
 extern "C" {
 #include "../fileBrowser/fileBrowser.h"
 #include "../fileBrowser/fileBrowser-libfat.h"
@@ -58,14 +60,14 @@ void Func_ReturnFromCurrentRomFrame();
  */
 
 static char FRAME_STRINGS[8][15] =
-	{ "Restart Game",
+	{ "Reset Game",
 	  "Swap CD",
 	  "Load MemCards",
 	  "Save MemCards",
-	  "Show ISO Info",
+	  "Show Game Info",
 	  "Load State",
 	  "Save State",
-	  "Slot 0"};
+	  "Slot 1"};
 
 struct ButtonInfo
 {
@@ -96,12 +98,12 @@ struct ButtonInfo
 
 CurrentRomFrame::CurrentRomFrame()
 {
-	for (int i = 0; i < NUM_FRAME_BUTTONS; i++)
+	for (int i = Autoboot ? 2 : 0; i < NUM_FRAME_BUTTONS; i++)
 		FRAME_BUTTONS[i].button = new menu::Button(FRAME_BUTTONS[i].buttonStyle, &FRAME_BUTTONS[i].buttonString, 
 										FRAME_BUTTONS[i].x, FRAME_BUTTONS[i].y, 
 										FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].height);
 
-	for (int i = 0; i < NUM_FRAME_BUTTONS; i++)
+	for (int i = Autoboot ? 2 : 0; i < NUM_FRAME_BUTTONS; i++)
 	{
 		if (FRAME_BUTTONS[i].focusUp != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_UP, FRAME_BUTTONS[FRAME_BUTTONS[i].focusUp].button);
 		if (FRAME_BUTTONS[i].focusDown != -1) FRAME_BUTTONS[i].button->setNextFocus(menu::Focus::DIRECTION_DOWN, FRAME_BUTTONS[FRAME_BUTTONS[i].focusDown].button);
@@ -115,7 +117,8 @@ CurrentRomFrame::CurrentRomFrame()
 												FRAME_BUTTONS[i].x+FRAME_BUTTONS[i].width, FRAME_BUTTONS[i].y, 
 												FRAME_BUTTONS[i].y+FRAME_BUTTONS[i].height);
 	}
-	setDefaultFocus(FRAME_BUTTONS[0].button);
+	
+	setDefaultFocus(FRAME_BUTTONS[Autoboot ? 4 : 0].button);
 	setBackFunc(Func_ReturnFromCurrentRomFrame);
 	setEnabled(true);
 
@@ -142,7 +145,22 @@ void Func_ShowRomInfo()
 {
 	char RomInfo[512] = "";
 	char buffer [128];
-	
+#if 1
+	// scan backwards for space (0x20) and remove it
+	bool hasSp = false;
+	int i = 0;
+	for(i = 31; i > 0; --i) {
+		if(CdromLabel[31] == 0x20)
+			hasSp = true;
+		else
+			break;
+
+		if(CdromLabel[i] != 0x20 && hasSp) {
+			CdromLabel[i+1] = 0;
+			break;
+		}
+	}
+#endif
 	strcat(RomInfo,"\nCD-ROM Label: ");
 	int x = sizeof(CdromLabel)-1;
 	for(; x > 0; x--)
@@ -177,13 +195,15 @@ void Func_SetPlayGame();
 
 void Func_ResetROM()
 {
+if(menu::MessageBox::getInstance().askMessage("Reset game?")) {
   SysClose();
 	SysInit ();
 	CheckCdrom();
   SysReset();
 	LoadCdrom();
-	menu::MessageBox::getInstance().setMessage("Game restarted");
+	menu::MessageBox::getInstance().setMessage("Game has been reset.");
 	Func_SetPlayGame();
+}
 }
 
 void Func_SwapCD()
@@ -210,6 +230,7 @@ static unsigned int which_slot = 0;
 
 void Func_LoadState()
 {
+if(menu::MessageBox::getInstance().askMessage("Load a Save State?")) {
 	char *filename = (char*)malloc(1024);
 #ifdef HW_RVL
 	sprintf(filename, "%s%s%s.st%d",(saveStateDevice==SAVESTATEDEVICE_USB)?"usb:":"sd:",
@@ -226,9 +247,11 @@ void Func_LoadState()
 	PostSaveState();
 	free(filename);
 }
+}
 
 void Func_SaveState()
 {
+if(menu::MessageBox::getInstance().askMessage("Create a Save State?")) {
 	char *filename = (char*)malloc(1024);
 #ifdef HW_RVL
 	sprintf(filename, "%s%s%s.st%d",(saveStateDevice==SAVESTATEDEVICE_USB)?"usb:":"sd:",
@@ -245,14 +268,13 @@ void Func_SaveState()
 	PostSaveState();
   	free(filename);
 }
+}
 
 
 void Func_StateCycle()
 {
-	
-	which_slot = (which_slot+1) %10;
-	FRAME_STRINGS[7][5] = which_slot + '0';
-
+	which_slot = (which_slot+1) %9;
+	FRAME_STRINGS[7][5] = which_slot + '1';
 }
 
 void Func_ReturnFromCurrentRomFrame()

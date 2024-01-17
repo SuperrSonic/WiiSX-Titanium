@@ -105,6 +105,9 @@ char autoSave;
 signed char autoSaveLoaded = 0;
 char screenMode = 0;
 char videoMode = 0;
+char videoWidth = 0;
+char videoFb = 1;
+char videoLinear = 2;
 char fileSortMode = 1;
 char padAutoAssign;
 char padType[4];
@@ -147,7 +150,10 @@ static struct {
   { "FPS", &showFPSonScreen, FPS_HIDE, FPS_SHOW },
 //  { "Debug", &printToScreen, DEBUG_HIDE, DEBUG_SHOW },
   { "ScreenMode", &screenMode, SCREENMODE_4x3, SCREENMODE_16x9_PILLARBOX },
-  { "VideoMode", &videoMode, VIDEOMODE_AUTO, VIDEOMODE_PROGRESSIVE },
+  { "VideoMode", &videoMode, VIDEOMODE_AUTO, VIDEOMODE_DS },
+  { "VideoWidth", &videoWidth, VIDEOWIDTH_640, VIDEOWIDTH_720 },
+  { "VideoFb", &videoFb, VIDEOFB_512, VIDEOFB_640 },
+  { "VideoLinear", &videoLinear, LINEAR_OFF, LINEAR_2x },
   { "Dithering", &useDithering, USEDITHER_NONE, USEDITHER_ALWAYS },
   { "FileSortMode", &fileSortMode, FILESORT_DIRS_MIXED, FILESORT_DIRS_FIRST },
   { "Core", &dynacore, DYNACORE_DYNAREC, DYNACORE_INTERPRETER },
@@ -187,7 +193,7 @@ void loadSettings(int argc, char *argv[])
 {
 	// Default Settings
 	audioEnabled     = 1; // Audio
-	volume           = VOLUME_MEDIUM;
+	volume           = VOLUME_LOUDEST;
 	reverb			 = REVERB_ENABLE;
 	deflicker		 = DEFLICKER_ENABLE;
 #ifdef RELEASE
@@ -206,8 +212,11 @@ void loadSettings(int argc, char *argv[])
 	autoSave         = 1; // Auto Save Game
 	creditsScrolling = 0; // Normal menu for now
 	dynacore         = 0; // Dynarec
-	screenMode		 = 0; // Stretch FB horizontally
+	screenMode		 = CONF_GetAspectRatio() == CONF_ASPECT_16_9 ? SCREENMODE_16x9_PILLARBOX : 0; // Stretch FB horizontally
 	videoMode		 = VIDEOMODE_AUTO;
+	videoWidth		 = VIDEOWIDTH_640;
+	videoFb          = VIDEOFB_640;
+	videoLinear      = LINEAR_2x;
 	fileSortMode	 = FILESORT_DIRS_FIRST;
 	padAutoAssign	 = PADAUTOASSIGN_AUTOMATIC;
 	padType[0]		 = PADTYPE_NONE;
@@ -367,6 +376,10 @@ void video_mode_init(GXRModeObj *videomode, u32 *fb1, u32 *fb2, u32 *fb3)
 	xfb[2] = fb3;
 }
 
+bool Autoboot;
+char AutobootROM[1024];
+char AutobootPath[1024];
+
 int main(int argc, char *argv[]) 
 {
 	/* INITIALIZE */
@@ -385,6 +398,23 @@ int main(int argc, char *argv[])
 #else
 	VM_Init(ARAM_SIZE, MRAM_BACKING);		// Setup Virtual Memory with the entire ARAM
 #endif
+	if(argc > 2 && argv[1] != NULL && argv[2] != NULL)
+	{
+		Autoboot = true;
+		strncpy(AutobootPath, argv[1], sizeof(AutobootPath));
+		strncpy(AutobootROM, argv[2], sizeof(AutobootROM));
+	}
+	else
+	{
+		//TODO: redundant
+		Autoboot = false;
+		memset(AutobootPath, 0, sizeof(AutobootPath));
+		memset(AutobootROM, 0, sizeof(AutobootROM));
+	}
+
+	//Autoboot = true;
+	//strncpy(AutobootPath, "sd:/wiisx/isos/", sizeof(AutobootPath));
+	//strncpy(AutobootROM, "PRLR.cue", sizeof(AutobootROM));
 	
 	loadSettings(argc, argv);
 	MenuContext *menu = new MenuContext(vmode);
@@ -415,7 +445,13 @@ int main(int argc, char *argv[])
 	  init_network_thread();
   }
 #endif
-	
+	if(Autoboot)
+	{
+		//if(strncasecmp(AutobootPath, "ntfs:/", 6) == 0)
+			//fileBrowser_libntfs_Mount();
+		menu->Autoboot();
+		Autoboot = false;
+	}
 	while (menu->isRunning()) {}
 	
 	// Shut down AESND
