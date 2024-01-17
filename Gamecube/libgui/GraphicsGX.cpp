@@ -23,6 +23,7 @@
 #include "../wiiSXconfig.h"
 
 extern bool Autoboot;
+int is240p = 0;
 
 extern "C" unsigned int usleep(unsigned int us);
 void video_mode_init(GXRModeObj *rmode, u32 *fb1, u32 *fb2, u32 *fb3);
