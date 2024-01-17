@@ -37,6 +37,9 @@ extern "C" {
 #include <string.h>
 #include <ogcsys.h>
 #include <malloc.h>
+#include <gctypes.h>
+
+static int Playlog_Exit(void);
 
 #define ALIGN32(x) (((x) + 31) & ~31)
 #define SECONDS_TO_2000 946684800LL
@@ -70,6 +73,7 @@ static u64 getWiiTime(void)
 
 int Playlog_Exit(void)
 {
+	u64 stime = 0;
 	s32 res = -1;
 	u32 sum = 0;
 	u8 i;
@@ -79,7 +83,7 @@ int Playlog_Exit(void)
 	if(fd < 0)
 		return fd;
 
-	PlayRec * playrec_buf = memalign(32, ALIGN32(sizeof(PlayRec)));
+	PlayRec * playrec_buf = (PlayRec*) memalign(32, ALIGN32(sizeof(PlayRec)));
 	if(!playrec_buf)
 		goto cleanup;
 
@@ -91,9 +95,9 @@ int Playlog_Exit(void)
 		goto cleanup;
 
 	// update exit time
-	u64 stime = getWiiTime();
+	stime = getWiiTime();
 	playrec_buf->ticks_last = stime;
-
+	
 	//Calculate and update checksum
 	for(i = 0; i < 31; i++)
 		sum += playrec_buf->data[i];
