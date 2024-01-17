@@ -724,7 +724,7 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	//Experiment
 	//GX_DrawDone();
 
-#if 0
+#if 1
 	float ymin = 1.0f - (float)((y + height) * 2) / (float)screen_h;
 	float ymax = 1.0f - (float)y / (float)screen_h;
 	float xmin = (float)x / (float)screen_w - 1.0f;
@@ -743,11 +743,11 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	  GX_Position2f32(xmin, ymax);
 	  GX_TexCoord2f32( 0.0, 0.0);
 	  GX_Position2f32(xmax, ymax);
-	  GX_TexCoord2f32( 1.0, 0.0);
+	  GX_TexCoord2f32( width, 0.0);
 	  GX_Position2f32(xmax, ymin);
-	  GX_TexCoord2f32( 1.0, 1.0);
+	  GX_TexCoord2f32( width, height);
 	  GX_Position2f32(xmin, ymin);
-	  GX_TexCoord2f32( 0.0, 1.0);
+	  GX_TexCoord2f32( 0.0, height);
 	GX_End();
 #else
 	float xcoord = 1.0;
