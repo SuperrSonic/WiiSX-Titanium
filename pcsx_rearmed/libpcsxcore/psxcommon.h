@@ -173,7 +173,11 @@ extern struct PcsxSaveFuncs SaveFuncs;
 	if (Mode == 0) SaveFuncs.read(f, ptr, size); \
 }
 
-#define PSXCLK	33868800	/* 33.8688 MHz */
+#define PSXCLK	25401600	/* 33.8688 MHz */
+
+//33868800 default
+//25401600 (0.75)
+//16934400 (0.50)
 
 enum {
 	PSX_TYPE_NTSC = 0,
