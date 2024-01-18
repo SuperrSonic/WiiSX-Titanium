@@ -106,7 +106,6 @@ signed char autoSaveLoaded = 0;
 char screenMode = 0;
 char videoMode = 0;
 char videoWidth = 0;
-char videoFb = 1;
 char videoLinear = 2;
 char fileSortMode = 1;
 char padAutoAssign;
@@ -152,7 +151,6 @@ static struct {
   { "ScreenMode", &screenMode, SCREENMODE_4x3, SCREENMODE_16x9_PILLARBOX },
   { "VideoMode", &videoMode, VIDEOMODE_AUTO, VIDEOMODE_DS },
   { "VideoWidth", &videoWidth, VIDEOWIDTH_640, VIDEOWIDTH_720 },
-  { "VideoFb", &videoFb, VIDEOFB_512, VIDEOFB_640 },
   { "VideoLinear", &videoLinear, LINEAR_OFF, LINEAR_2x },
   { "Dithering", &useDithering, USEDITHER_NONE, USEDITHER_ALWAYS },
   { "FileSortMode", &fileSortMode, FILESORT_DIRS_MIXED, FILESORT_DIRS_FIRST },
@@ -215,7 +213,6 @@ void loadSettings(int argc, char *argv[])
 	screenMode		 = 0; // Stretch FB horizontally
 	videoMode		 = VIDEOMODE_AUTO;
 	videoWidth		 = VIDEOWIDTH_640;
-	videoFb          = VIDEOFB_640;
 	videoLinear      = LINEAR_2x;
 	fileSortMode	 = FILESORT_DIRS_FIRST;
 	padAutoAssign	 = PADAUTOASSIGN_AUTOMATIC;

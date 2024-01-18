@@ -339,9 +339,6 @@ void Func_PlayGame()
   GX_InvVtxCache();
 
   need_reset = true;
-  //GX_InvalidateTexAll();
-  //}
-  //GX_Flush();
   VIDEO_WaitVSync();
 
 #ifdef HW_RVL

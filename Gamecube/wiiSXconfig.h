@@ -176,13 +176,6 @@ enum videoWidth
 	VIDEOWIDTH_720
 };
 
-extern char videoFb; //unused now
-enum videoFb
-{
-	VIDEOFB_512=0, //if the video is 256 or 512, integer scale it, so it's even sharper
-	VIDEOFB_640
-};
-
 extern char videoLinear;
 enum videoLinear
 {
