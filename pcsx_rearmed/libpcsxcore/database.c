@@ -116,6 +116,9 @@ cycle_multiplier_overrides[] =
 	{ 200, { "SCES02873" } },
 	/* Zero Divide - sometimes too fast */
 	{ 200, { "SLUS00183", "SLES00159", "SLPS00083", "SLPM80008" } },
+	
+	/* PRLR - jumping fails if fps is over 30 */
+	{ 200, { "SLUS01114", "SLES03286" } },
 };
 
 static const struct
