@@ -212,7 +212,7 @@ void Gui::draw()
 			VIDEO_Flush();
 #ifdef WII
 			//Update message board time
-			if(Autoboot)
+			//if(Autoboot) // always false at this point
 			//if(writePlaylog)
 				Playlog_Exit();
 #endif
