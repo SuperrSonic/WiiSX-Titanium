@@ -118,7 +118,7 @@ cycle_multiplier_overrides[] =
 	{ 200, { "SLUS00183", "SLES00159", "SLPS00083", "SLPM80008" } },
 	
 	/* PRLR - jumping fails if fps is over 30 */
-	{ 200, { "SLUS01114", "SLES03286" } },
+	{ 222, { "SLUS01114", "SLES03286" } },
 };
 
 static const struct
