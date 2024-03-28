@@ -213,7 +213,7 @@ void Gui::draw()
 #ifdef WII
 			//Update message board time
 			//if(Autoboot) // always false at this point
-			//if(writePlaylog)
+			// TODO: fix this - if(writePlaylog)
 				Playlog_Exit();
 #endif
 		 	VIDEO_WaitVSync();
