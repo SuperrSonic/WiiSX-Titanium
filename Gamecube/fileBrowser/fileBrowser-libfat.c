@@ -233,9 +233,6 @@ int fileBrowser_libfat_init(fileBrowser_file* f){
 	return res;
 #else
 	if(f->name[0] == 's') {
-		if(m2loader->startup(m2loader)) {
-			res = fatMountSimple ("sd", m2loader);
-		}
 		if(!res && gcloader->startup(gcloader)) {
 			res = fatMountSimple ("sd", gcloader);
 		}
@@ -248,6 +245,9 @@ int fileBrowser_libfat_init(fileBrowser_file* f){
 		if(!res && cardb->startup(cardb)) {
 			res = fatMountSimple ("sd", cardb);
 		}
+		//if(m2loader->startup(m2loader)) {
+			//res = fatMountSimple ("sd", m2loader);
+		//}
 	}
 	else if(f->name[0] == 'd') {	// DVD
 		if(ISO9660_Mount("dvd", dvd)) {
