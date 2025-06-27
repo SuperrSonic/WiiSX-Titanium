@@ -57,7 +57,15 @@ void SetVolume(void)
 static int aesnd_init(void) {
 	voice = AESND_AllocateVoice(aesnd_callback);
 	AESND_SetVoiceFormat(voice, VOICE_STEREO16);
-	AESND_SetVoiceFrequency(voice, 44100);
+	// GC 48043 Hz, 1.00090625
+	u32 freq = 44105; // SuSo test
+#ifndef HW_RVL
+	if(videoMode == VIDEOMODE_DS)
+		freq *= (double)1.00090625;
+	//else
+		//freq *= (double)1.00090625;
+#endif
+	AESND_SetVoiceFrequency(voice, freq);
 	SetVolume();
 	AESND_SetVoiceStream(voice, true);
 	fillBuffer = playBuffer = 0;

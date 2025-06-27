@@ -829,6 +829,7 @@ static void GX_Flip(const void *buffer, int pitch, u8 fmt,
 	if(firstFrame) {
 		firstFrame = false;
 		VIDEO_SetBlack(false);
+		VIDEO_Flush();
 	}
 }
 

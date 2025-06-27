@@ -333,13 +333,14 @@ void loadSettings(int argc, char *argv[])
 
 	//Test for Bios file
 	if(biosDevice != BIOSDEVICE_HLE) {
-		if(checkBiosExists((int)biosDevice) == FILE_BROWSER_ERROR_NO_FILE) {
-			biosDevice = BIOSDEVICE_HLE;
-		}
-		else {
+	// SuSo test: see if forcing this works
+		//if(checkBiosExists((int)biosDevice) == FILE_BROWSER_ERROR_NO_FILE) {
+		//	biosDevice = BIOSDEVICE_HLE;
+		//}
+		//else {
 			strcpy(Config.BiosDir, &((biosDevice == BIOSDEVICE_SD) ? &biosDir_libfat_Default : &biosDir_libfat_USB)->name[0]);
 			strcpy(Config.Bios, "/SCPH1001.BIN");
-		}
+		//}
 	}
 
 	//Synch settings with Config
