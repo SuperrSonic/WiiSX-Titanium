@@ -22,19 +22,17 @@ set(CMAKE_SYSTEM_NAME ${WIISX_TARGET})
 
 if (CMAKE_SYSTEM_NAME STREQUAL NintendoWii)
 	set(OGC_SUBDIR wii)
-	set(OGC_PORTLIBS_DIR wii)
 	set(OGC_COMPILE_OPTIONS -mrvl)
 else()
 	set(OGC_SUBDIR cube)
-	set(OGC_PORTLIBS_DIR gamecube)
 	set(OGC_COMPILE_OPTIONS -mogc)
 endif()
 
 set(OGC_COMPILE_OPTIONS -mcpu=750 -meabi -mhard-float ${OGC_COMPILE_OPTIONS})
-add_compile_options(${OGC_COMPILE_OPTIONS} -ffunction-sections -O3 -fipa-pta -DNDEBUG)
+add_compile_options(${OGC_COMPILE_OPTIONS} -ffunction-sections)
 add_link_options(${OGC_COMPILE_OPTIONS} -Wl,--gc-sections)
 
-list(APPEND CMAKE_SYSTEM_PREFIX_PATH ${DEVKITPRO}/libogc2;${DEVKITPRO}/portlibs/ppc;${DEVKITPRO}/portlibs/${OGC_PORTLIBS_DIR})
+list(APPEND CMAKE_SYSTEM_PREFIX_PATH ${DEVKITPRO}/libogc2;${DEVKITPRO}/portlibs/ppc)
 set(CMAKE_FIND_LIBRARY_CUSTOM_LIB_SUFFIX /${OGC_SUBDIR})
 
 find_library(OGC_LIBRARIES ogc REQUIRED)
@@ -46,11 +44,8 @@ set_target_properties(ogc PROPERTIES
 target_include_directories(ogc INTERFACE
 	${DEVKITPRO}/libogc2/include
 	${DEVKITPRO}/libogc2/include/ogc
-	${DEVKITPRO}/portlibs/ppc/include
-	${DEVKITPRO}/portlibs/${OGC_PORTLIBS_DIR}/include
 )
 
-find_library(OPENGX_LIBRARIES opengx REQUIRED)
 find_library(AESND_LIBRARIES aesnd REQUIRED)
 find_library(FAT_LIBRARIES fat REQUIRED)
 find_library(ISO9660_LIBRARIES iso9660 REQUIRED)
@@ -275,7 +270,7 @@ target_compile_definitions(dfsound PRIVATE HAVE_OSS)
 if (NOT GPU_PLUGIN)
 	set(GPU_PLUGIN Peops CACHE STRING "GPU plugin" FORCE)
 	set_property(CACHE GPU_PLUGIN PROPERTY
-		STRINGS Peops PeopsGX Unai Gles
+		STRINGS Peops PeopsGX Unai
 	)
 endif()
 
@@ -294,19 +289,14 @@ if (GPU_PLUGIN STREQUAL PeopsGX)
 		PeopsGXGPU/ssave.c
 		PeopsGXGPU/texture.c
 		PeopsGXGPU/zn.c
+		PeopsGXGPU/opengx/gc_gl.c
+		PeopsGXGPU/opengx/image_DXT.c
 	)
 	target_compile_definitions(gpu PRIVATE GX_GPU)
 	set_target_properties(gpu PROPERTIES LINKER_LANGUAGE C)
 elseif (GPU_PLUGIN STREQUAL Peops)
 	add_library(gpu OBJECT
 		pcsx_rearmed/plugins/dfxvideo/gpulib_if.c
-		pcsx_rearmed/plugins/gpulib/gpu.c
-		pcsx_rearmed/plugins/gpulib/vout_pl.c
-	)
-	set_target_properties(gpu PROPERTIES LINKER_LANGUAGE C)
-elseif (GPU_PLUGIN STREQUAL Gles)
-	add_library(gpu OBJECT
-		pcsx_rearmed/plugins/gpu-gles/gpulib_if.c
 		pcsx_rearmed/plugins/gpulib/gpu.c
 		pcsx_rearmed/plugins/gpulib/vout_pl.c
 	)
@@ -354,7 +344,7 @@ set_target_properties(wiisx PROPERTIES
 
 target_link_libraries(wiisx PRIVATE
 	menu libgui filebrowser dfsound libpcsxcore libchdr lzma lightrec lightning gpu
-	${AESND_LIBRARIES} ${FAT_LIBRARIES} ${ISO9660_LIBRARIES} ${OPENGX_LIBRARIES}
+	${AESND_LIBRARIES} ${FAT_LIBRARIES} ${ISO9660_LIBRARIES}
 	${TINYSMB_LIBRARIES} ${LIBDI_LIBRARIES} ${LIBWIIUSE_LIBRARIES} ${LIBBTE_LIBRARIES}
 )
 target_compile_definitions(wiisx PRIVATE GEKKO)
