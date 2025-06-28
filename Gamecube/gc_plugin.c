@@ -962,7 +962,7 @@ void pl_frame_limit(void)
 		tv_expect.tv_usec = usadj << 10;
 	}
 
-	if (frameLimit == FRAMELIMIT_AUTO && diff > frame_interval) {
+	if (frameLimit == FRAMELIMIT_NONE && diff > frame_interval) {
 		if (vsync_enable)
 			VIDEO_WaitVSync();
 		else
