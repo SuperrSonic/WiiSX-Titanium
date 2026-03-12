@@ -119,6 +119,9 @@ cycle_multiplier_overrides[] =
 	
 	/* PRLR - jumping fails if fps is over 30 */
 	{ 310, { "SLUS01114", "SLES03286" } },
+	
+	/* PRTF - just speed increase, todo: look up PAL and actually test this */
+	{ 200, { "SLUS01351", "SLUS00562" } },
 };
 
 static const struct
