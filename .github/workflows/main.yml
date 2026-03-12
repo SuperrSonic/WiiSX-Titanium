@@ -6,18 +6,9 @@ jobs:
   build:
     name: Build CubeSX/WiiSX
     runs-on: ubuntu-latest
-    container: devkitpro/devkitppc:20250102
+    container: ghcr.io/extremscorner/libogc2:latest
 
     steps:
-    - name: Install packages
-      run: |
-        sudo dkp-pacman-key --recv-keys C8A2759C315CFBC3429CC2E422B803BA8AA3D7CE --keyserver keyserver.ubuntu.com
-        sudo dkp-pacman-key --lsign-key C8A2759C315CFBC3429CC2E422B803BA8AA3D7CE
-        sudo sed -i '/^\[dkp-libs\]$/,$d' /opt/devkitpro/pacman/etc/pacman.conf
-        sudo echo -e '[extremscorner-devkitpro]\nServer = https://packages.extremscorner.org/devkitpro/linux/$arch' >> /opt/devkitpro/pacman/etc/pacman.conf
-        sudo dkp-pacman -Sy
-        sudo dkp-pacman -S --noconfirm --ask 4 gamecube-tools-git libogc2 libogc2-cmake libogc2-libdvm ppc-zlib-ng-compat
- 
     - name: Checkout pcsxgc
       uses: actions/checkout@master
       with:
@@ -54,7 +45,7 @@ jobs:
         cmake --build build_wii
         mv build_wii/WiiSX.dol release/apps/wiiSX/boot.dol
       working-directory: pcsxgc
-
+      
     - name: Build WiiSX (unai gpu)
       run: |
         mkdir build_wii_unai
@@ -70,7 +61,7 @@ jobs:
         cmake --build build_cube
         mv build_cube/CubeSX.dol release/CubeSX.dol
       working-directory: pcsxgc
-
+      
     - name: Build CubeSX (unai gpu)
       run: |
         mkdir build_cube_unai
@@ -85,6 +76,7 @@ jobs:
         name: WiiSX
         path: pcsxgc/release
 
+        
     - name: Upload soft (Unai) CubeSX/WiiSX
       uses: actions/upload-artifact@main
       with:
