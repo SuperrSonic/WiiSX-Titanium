@@ -51,7 +51,7 @@ jobs:
         mkdir build_wii_unai
         cmake -B build_wii_unai -DCMAKE_BUILD_TYPE=None -DWIISX_TARGET=NintendoWii -DGPU_PLUGIN=Unai
         cmake --build build_wii_unai
-        mv build_wii_unai/WiiSX.dol release_unai/apps/wiiSX/boot.dol
+        mv build_wii_unai/ release_unai/cmake/
       working-directory: pcsxgc
 
     - name: Build CubeSX (soft gfx)
