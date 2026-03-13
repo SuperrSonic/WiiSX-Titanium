@@ -53,29 +53,6 @@ jobs:
         cmake --build build_wii_unai
         mv build_wii_unai/ release_unai/cmake/
       working-directory: pcsxgc
-
-    - name: Build CubeSX (soft gfx)
-      run: |
-        mkdir build_cube
-        cmake -B build_cube -DCMAKE_BUILD_TYPE=None -DWIISX_TARGET=NintendoGameCube -DGPU_PLUGIN=Peops
-        cmake --build build_cube
-        mv build_cube/CubeSX.dol release/CubeSX.dol
-      working-directory: pcsxgc
-      
-    - name: Build CubeSX (unai gpu)
-      run: |
-        mkdir build_cube_unai
-        cmake -B build_cube_unai -DCMAKE_BUILD_TYPE=None -DWIISX_TARGET=NintendoGameCube -DGPU_PLUGIN=Unai
-        cmake --build build_cube_unai
-        mv build_cube_unai/CubeSX.dol release_unai/CubeSX.dol
-      working-directory: pcsxgc
-
-    - name: Upload soft (Peops) CubeSX/WiiSX
-      uses: actions/upload-artifact@main
-      with:
-        name: WiiSX
-        path: pcsxgc/release
-
         
     - name: Upload soft (Unai) CubeSX/WiiSX
       uses: actions/upload-artifact@main
