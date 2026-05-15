@@ -93,7 +93,7 @@ Graphics::Graphics(GXRModeObj *rmode)
 	{
 	case VIDEOWIDTH_640:
 		vmode->viWidth   = 640;
-		//vmode->viXOrigin = 40; //default
+		vmode->viXOrigin = 40;
 		break;
 	case VIDEOWIDTH_644:
 		vmode->viWidth   = 644;
