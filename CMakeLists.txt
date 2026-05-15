@@ -31,7 +31,7 @@ else()
 endif()
 
 set(OGC_COMPILE_OPTIONS ${OGC_COMPILE_OPTIONS} -mcpu=750 -meabi -mhard-float)
-add_compile_options(${OGC_COMPILE_OPTIONS} -ffunction-sections -fdata-sections -O3 -fipa-pta -DNDEBUG)
+add_compile_options(${OGC_COMPILE_OPTIONS} -ffunction-sections -fdata-sections -O2 -fipa-pta -DNDEBUG)
 add_link_options(${OGC_COMPILE_OPTIONS} -Wl,--gc-sections)
 
 list(APPEND CMAKE_SYSTEM_PREFIX_PATH ${DEVKITPRO}/libogc2/${OGC_PLATFORM};${DEVKITPRO}/portlibs/${OGC_PLATFORM};${DEVKITPRO}/portlibs/ppc)
