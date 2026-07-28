@@ -402,13 +402,6 @@ int main(int argc, char *argv[])
 		strncpy(AutobootPath, argv[1], sizeof(AutobootPath));
 		strncpy(AutobootROM, argv[2], sizeof(AutobootROM));
 	}
-	else
-	{
-		//TODO: redundant
-		Autoboot = false;
-		memset(AutobootPath, 0, sizeof(AutobootPath));
-		memset(AutobootROM, 0, sizeof(AutobootROM));
-	}
 
 	//Autoboot = true;
 	//strncpy(AutobootPath, "sd:/wiisx/isos/", sizeof(AutobootPath));
